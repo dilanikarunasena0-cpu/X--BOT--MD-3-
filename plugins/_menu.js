@@ -161,7 +161,7 @@ Sparky({
         }
 
         else if (config.MENU_TYPE.toLowerCase() === "video") {
-
+ 
             await client.sendMessage(m.jid, {
                 video: { url: config.BOT_INFO.split(";")[2] },
                 caption: style(menu),
@@ -170,18 +170,4 @@ Sparky({
 
         }
 
-        // ❌ payment case removed for safety simplicity
-
-        // 🔊 VOICE MESSAGE (AFTER MENU - GLOBAL)
-        await client.sendMessage(m.jid, {
-            audio: {
-                url: config.https://files.catbox.moe/xl9smz.mp3 || config.BOT_INFO.split(";")[2]
-            },
-            mimetype: "audio/mp4",
-            ptt: true
-        }, { quoted: m });
-
-    } catch (e) {
-        console.log(e);
-    }
 });
