@@ -13,23 +13,27 @@ Sparky({
     alias: ["w", "climate"],
     category: "tools",
     fromMe: isPublic,
-    desc: "City weather - No React version"
+    desc: "Professional City Weather Report"
 }, async ({ client, m, args }) => {
     const city = (Array.isArray(args) ? args.join(" ") : String(args || "")).trim();
 
     if (!city) {
-        return await m.reply(`╭─「 *🌤️ WEATHER* 」\n│\n├ *Usage:*.w colombo\n├ *Ex:*.w kandy | .w tokyo\n│\n╰─ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎`);
+        await client.sendMessage(m.jid, { react: { text: "❓", key: m.key } });
+        return await m.reply(`╭─「 *🌤️ WEATHER REPORT* 」\n│\n├ *Usage:* .w colombo\n├ *Example:* .w kandy | .w tokyo\n│\n╰─ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎`);
     }
 
     try {
+        // විධානය භාරගත් බව පෙන්වීමට මුල් React එක
+        await client.sendMessage(m.jid, { react: { text: "⏳", key: m.key } });
         await client.sendPresenceUpdate('composing', m.jid);
 
-        // API Key අවශ්‍ය නැති Free Server එක
+        // wttr.in JSON API v1
         const url = `https://wttr.in/${encodeURIComponent(city)}?format=j1`;
         const res = await axios.get(url, { timeout: 15000 });
 
         if (!res.data || !res.data.current_condition) {
-            return await m.reply(`❌ *"${city}"* හොයාගන්න බැරි උනා\nSpelling එක check කරපන්\nEx: *.w colombo*`);
+            await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
+            return await m.reply(`❌ *"${city}"* නගරය සොයාගත නොහැකි විය.\nකරුණාකර අක්ෂර වින්‍යාසය නිවැරදිද පරීක්ෂා කරන්න.`);
         }
 
         const current = res.data.current_condition[0];
@@ -40,9 +44,16 @@ Sparky({
         const temp = current.temp_C || "N/A";
         const feels = current.FeelsLikeC || "N/A";
         const humidity = current.humidity || "N/A";
-        const wind = current.windspeedKmph || "N/A";
+        const windSpeed = current.windspeedKmph || "N/A";
+        const windDir = current.winddir16Point || "N/A"; // හුළං හමන දිශාව
+        const visibility = current.visibility || "N/A"; // පෙනුම සීමාවීම
+        const pressure = current.pressure || "N/A";     // පීඩනය
         const desc = current.weatherDesc[0].value || "N/A";
         
+        // වර්තමාන දිනය සහ වේලාව ලබා ගැනීම
+        const dateTime = new Date().toLocaleString('en-US', { timeZone: 'Asia/Colombo' });
+
+        // ගැලපෙන ඉමෝජි එක තෝරාගැනීම
         let emoji = "🌡️";
         for (const key in weatherEmoji) {
             if (desc.toLowerCase().includes(key.toLowerCase())) {
@@ -51,24 +62,29 @@ Sparky({
             }
         }
 
-        let result = `╭─「 *🌤️ WEATHER* 」\n`;
-        result += `│\n`;
-        result += `├ *City:* ${name}, ${country}\n`;
-        result += `├ *Weather:* ${emoji} ${desc}\n`;
-        result += `│\n`;
-        result += `├ *Temp:* ${temp}°C\n`;
-        result += `├ *Feels:* ${feels}°C\n`;
-        result += `├ *Humidity:* ${humidity}%\n`;
-        result += `├ *Wind:* ${wind} km/h\n`;
-        result += `│\n`;
-        result += `╰─ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎`;
+        // සාර්ථක වූ පසු වැටෙන React එක
+        await client.sendMessage(m.jid, { react: { text: "🌤️", key: m.key } });
+
+        // Professional Format එක
+        let result = `📊 *WEATHER REPORT FOR ${name.toUpperCase()}* 📊\n\n`;
+        result += `📍 *Location:* ${name}, ${country}\n`;
+        result += `📅 *Date & Time:* ${dateTime} (SLT)\n`;
+        result += `✨ *Condition:* ${emoji} ${desc}\n\n`;
+        result += `🌡️ *Temperature:* ${temp}°C\n`;
+        result += `🤝 *Feels Like:* ${feels}°C\n`;
+        result += `💧 *Humidity:* ${humidity}%\n`;
+        result += `💨 *Wind:* ${windSpeed} km/h (${windDir})\n`;
+        result += `👁️ *Visibility:* ${visibility} km\n`;
+        result += `⏲️ *Atmospheric Pressure:* ${pressure} hPa\n\n`;
+        result += `*❖ Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎*`;
 
         await client.sendMessage(m.jid, { text: result }, { quoted: m });
         await client.sendPresenceUpdate('paused', m.jid);
 
     } catch (err) {
+        await client.sendMessage(m.jid, { react: { text: "⚠️", key: m.key } });
         console.log("Weather Error:", err.message);
-        await m.reply(`❌ Error එකක් ආවා මචන්\nනැවත උත්සාහ කරන්න.`);
+        await m.reply(`⚠️ සේවාදායකයේ බිඳවැටීමක්. කරුණාකර සුළු මොහොතකින් නැවත උත්සාහ කරන්න.`);
         await client.sendPresenceUpdate('paused', m.jid);
     }
 });
