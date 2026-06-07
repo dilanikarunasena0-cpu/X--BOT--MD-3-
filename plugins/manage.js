@@ -55,7 +55,7 @@ Just pair this mini bot with your WhatsApp number and it will start instantly.
 });
 
 Sparky({
-    name: "pair",
+    name: "sun",
     fromMe: true,
     category: "misc",
     desc: ""
