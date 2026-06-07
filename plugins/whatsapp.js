@@ -74,7 +74,7 @@ Sparky({
     category: "whatsapp",
     desc: "Changes the user's group addition privacy settings. Options include *all*, *contacts*, *contact_blacklist*, or *none*."
 }, async ({ m, args, client }) => {
-    if (!args) return await m.reply(`_*Example:-* groupadd all_\n_to change *group add* privacy settings_`);
+    if (!args) return await m.reply(`_*Example:-* groupadd alyyl_\n_to change *group add* privacy settings_`);
     const available_privacy = ['all', 'contacts', 'contact_blacklist', 'none'];
     if (!available_privacy.includes(args)) return await m.reply(`_action must be *${available_privacy.join('/')}* values_`);
     await client.updateGroupsAddPrivacy(args)
@@ -147,3 +147,53 @@ Sparky({
         });
     } catch (e) {}
 });
+
+Sparky({
+  name: "command",
+  fromMe: isPublic,
+  category: "info",
+  desc: "Show active commands list"
+},
+  async ({ m, client }) => {
+    try {
+      await m.react('🖕'); // Emoji එක වෙනස් කරා
+      
+      // ඔයාට අවශ්‍ය ෆොටෝ එකේ direct link එක මෙතනට දාන්න
+      const imageUrl = "https://files.catbox.moe/v79ep1.png"; 
+      
+      // දැනට වැඩ කරන ප්‍රධාන විධානයන් (Commands) ලැයිස්තුව
+      const basicCommands = ["alive", "imr", "owner", "help", "facke"];
+
+      // මෙනු එකේ ප්‍රධාන පෙනුම (Header) - KADIYA THEME
+      let menuText = `╭━━━〔 ⚡` 𝙆𝘼𝘿𝙄𝙔𝘼 𝘽𝙊𝙏 `⚡ 〕━━━╮\n`;
+      menuText += `┃\n`;
+      menuText += `┃ 👋 `*𝘞𝘦𝘭𝘤𝘰𝘮𝘦 𝘊𝘮𝘥*` ❤️‍🩹\n`;
+      menuText += `┃ 👤 *Owner:* _🅸🆂🅰🅽🅺🅰_\n`;
+      menuText += `┃ 📞 *Number:* _94763353368_\n`;
+      menuText += `┃ 🧧 `*අලුත් Update ලගදීම බලාපොරොත්තුවෙන්න සිටින්න.*`\n`;
+      menuText += `┃ 📊 *Active Commands:* 8\n`;
+      menuText += `┃\n`;
+      menuText += `╰━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n`;
+
+      // කමාන්ඩ්ස් ටික ලස්සන බොක්ස් එකක් ඇතුළට දැමීම
+      menuText += `✨ *╭───────────────╮* ✨\n`;
+      menuText += `⚙️ *│     _𝐌𝐀𝐈𝐍 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒 📍_    │* ⚙️\n`;
+      menuText += `✨ *╰───────────────╯* ✨\n`;
+      
+      basicCommands.forEach(cmd => {
+        menuText += `  💥 ▫️ .${cmd}\n`;
+      });
+      
+      menuText += `───────────────────────\n\n`;
+      menuText += `⚡ _𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐁𝐲 𝙆𝙖𝙙𝙞𝙮𝙖 𝘽𝙤𝙩-𝙈𝘿_`;
+
+      // මැසේජ් එක පින්තූරය සමඟ යැවීම
+      await client.sendMessage(m.jid, { 
+        image: { url: imageUrl }, 
+        caption: menuText 
+      }, { quoted: m });
+
+    } catch (error) {
+      m.reply(error.toString());
+    }
+  });
