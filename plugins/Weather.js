@@ -15,7 +15,8 @@ Sparky({
     fromMe: isPublic,
     desc: "City weather - Error free version"
 }, async ({ client, m, args }) => {
-    const city = args.join(" ").trim();
+    // String ද Array ද කියලා check කරලා නගරයේ නම ගන්නවා
+    const city = (Array.isArray(args) ? args.join(" ") : String(args || "")).trim();
 
     if (!city) {
         await client.sendMessage(m.jid, { react: { text: "❓", key: m.key } });
@@ -26,7 +27,6 @@ Sparky({
         await client.sendMessage(m.jid, { react: { text: "🌐", key: m.key } });
         await client.sendPresenceUpdate('composing', m.jid);
 
-        // API URL
         const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric`;
         
         const res = await axios.get(url, { 
@@ -54,8 +54,6 @@ Sparky({
         const wind = data.wind?.speed || "N/A";
         const desc = data.weather?.[0]?.description || "N/A";
         const main = data.weather?.[0]?.main || "Clear";
-        
-        // මේ පේළිය මම හැදුවා: දැන් අදාළ emoji එක හරියටම තෝරගන්නවා
         const emoji = weatherEmoji[main] || "🌡️";
 
         await client.sendMessage(m.jid, { react: { text: "✅", key: m.key } });
