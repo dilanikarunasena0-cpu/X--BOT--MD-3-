@@ -197,3 +197,165 @@ Sparky({
       m.reply(error.toString());
     }
   });
+
+const axios = require('axios');
+
+Sparky({
+  name: "weather",
+  fromMe: isPublic,
+  category: "info",
+  desc: "Show current weather details of a city"
+},
+  async ({
+    m, client, text
+  }) => {
+    try {
+      // නගරයක් ඇතුළත් කර නොමැති නම්
+      if (!text) return await m.reply("කරුණාකර නගරයක නමක් ඇතුළත් කරන්න. (උදා: .weather Colombo)");
+
+      await m.react('☁️');
+      
+      const cityName = text.trim();
+      // නොමිලේ ලබාගත හැකි OpenWeather API එකක් භාවිතා කර ඇත
+      const apiKey = "6b4c711f582631c4d9ca2de2a0143029"; 
+      const url = `https://api.openweathermap.org/data/2.5/weather?q=${cityName}&units=metric&appid=${apiKey}`;
+      
+      const response = await axios.get(url);
+      const data = response.data;
+
+      // කාලගුණ දත්ත සකස් කිරීම
+      const weatherText = `*🌍 Weather Report: ${data.name}, ${data.sys.country}*\n\n` +
+                          `*🌡️ Temperature:* ${data.main.temp}°C\n` +
+                          `*💧 Humidity:* ${data.main.humidity}%\n` +
+                          `*💨 Wind Speed:* ${data.wind.speed} m/s\n` +
+                          `*📝 Condition:* ${data.weather[0].description}`;
+
+      // පණිවිඩය යැවීම
+      await client.sendMessage(m.jid, { text: weatherText }, { quoted: m });
+      await m.react('✅');
+
+    } catch (error) {
+      await m.react('❌');
+      if (error.response && error.response.status === 404) {
+        m.reply("කරුණාකර නගරයේ නම නිවැරදිව ඇතුළත් කරන්න.");
+      } else {
+        m.reply("කාලගුණ දත්ත ලබා ගැනීමට නොහැකි වුණා. පසුව උත්සාහ කරන්න.");
+      }
+    }
+  });
+
+const isPublic = true; 
+
+Sparky({
+  name: "ping", // කමාන්ඩ් එක .ping ලෙස ක්‍රියාත්මක වේ
+  fromMe: isPublic,
+  category: "info",
+  desc: "Check bot speed and latency"
+},
+  async ({ m, client }) => {
+    try {
+      // මුලින්ම රීඇක්ෂන් එකක් දමන්න
+      await m.react('⚡'); 
+      
+      // පටන් ගත් වෙලාව සටහන් කර ගැනීම
+      const startTime = Date.now();
+      
+      // පින්තූරයේ Direct Link එක
+      const imageUrl = "https://files.catbox.moe/v79ep1.png"; 
+
+      // පණිවිඩය යැවීමට ගතවන කාලය (Latency) ගණනය කිරීම
+      const latency = Date.now() - startTime;
+      
+      // මෙනු එකේ ප්‍රධාන පෙනුම - MALIYA THEME
+      let pingText = `╭═════════════════════════╮\n`;
+      pingText += `│   ⚡ 𝐌𝐀𝐋𝐈𝐘𝐀 𝐁𝐎𝐓-𝐌𝐃 ⚡   │\n`;
+      menuText += `╰═════════════════════════╯\n\n`;
+      
+      pingText += `  🏓 *𝖯𝗈𝗇𝗀...!!* ❤️‍🩹\n\n`;
+      pingText += `  🚀 *Speed:* _${latency} ms_\n`;
+      pingText += `  📟 *Status:* _Online_\n`;
+      pingText += `  👤 *Owner:* _🅸🆂🅰🅽🅺🅰_\n\n`;
+      
+      pingText += `───────────────────────────\n`;
+      pingText += `💻 _𝖯𝗈𝗐𝖾𝗋𝖾𝖽 𝖡𝗒 𝖬𝖺𝗅𝗂𝗒𝖺 𝖡𝗈𝗍_`;
+
+      // මැසේජ් එක පින්තූරය සමඟ යැවීම
+      await client.sendMessage(m.jid, { 
+        image: { url: imageUrl }, 
+        caption: pingText 
+      }, { quoted: m });
+
+      await m.react('✅');
+    } catch (error) {
+      await m.react('❌');
+      m.reply(error.toString());
+    }
+  });
+
+const isPublic = true; 
+
+Sparky({
+  name: "help", // .help හෝ .menu ලෙස ක්‍රියාත්මක කළ හැක
+  fromMe: isPublic,
+  category: "info",
+  desc: "Show full command menu"
+},
+  async ({ m, client }) => {
+    try {
+      await m.react('📑'); 
+      
+      // පින්තූරයේ Direct Link එක
+      const imageUrl = "https://files.catbox.moe/v79ep1.png"; 
+
+      // මෙනු එකේ ප්‍රධාන පෙනුම - MALIYA THEME
+      let helpText = `╭═════════════════════════╮\n`;
+      helpText += `│   ⚡ 𝐌𝐀𝐋𝐈𝐘𝐀 𝐁𝐎𝐓-𝐌𝐃 ⚡   │\n`;
+      helpText += `╰═════════════════════════╯\n\n`;
+      
+      helpText += `  👋 *Hello User* ❤️‍🩹\n`;
+      helpText += `  👤 *Owner:* _🅸🆂🅰🅽🅺🅰_\n`;
+      helpText += `  📞 *Number:* _94763353368_\n`;
+      helpText += `  Prefix:* [ . ]\n\n`;
+
+      // MAIN COMMANDS LIST
+      helpText += `┌─────────────────────────┐\n`;
+      helpText += `│      📍  *𝐌𝐀content𝐈𝐍 𝐂𝐌𝐃𝐒* │\n`;
+      helpText += `└─────────────────────────┘\n`;
+      helpText += `  📌 .alive\n`;
+      helpText += `  📌 .imr\n`;
+      helpText += `  📌 .owner\n`;
+      helpText += `  📌 .ping\n\n`;
+
+      // DOWNLOAD COMMANDS LIST
+      helpText += `┌─────────────────────────┐\n`;
+      helpText += `│      📥  *𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 𝐂𝐌𝐃𝐒* │\n`;
+      helpText += `└─────────────────────────┘\n`;
+      helpText += `  📥 .song\n`;
+      helpText += `  📥 .video\n`;
+      helpText += `  📥 .fb\n`;
+      helpText += `  📥 .tiktok\n\n`;
+
+      // GROUP COMMANDS LIST
+      helpText += `┌─────────────────────────┐\n`;
+      helpText += `│      👥  *𝐆𝐑𝐎𝐔𝐏 𝐂𝐌𝐃𝐒* │\n`;
+      helpText += `└─────────────────────────┘\n`;
+      helpText += `  ⚙️ .kick\n`;
+      helpText += `  ⚙️ .add\n`;
+      helpText += `  ⚙️ .promote\n`;
+      helpText += `  ⚙️ .demote\n\n`;
+      
+      helpText += `───────────────────────────\n`;
+      helpText += `💻 _𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐁𝐲 𝐌𝐚𝐥𝐢𝐲𝐚 𝐁𝐨𝐭_`;
+
+      // මැසේජ් එක පින්තූරය සමඟ යැවීම
+      await client.sendMessage(m.jid, { 
+        image: { url: imageUrl }, 
+        caption: helpText 
+      }, { quoted: m });
+
+      await m.react('✅');
+    } catch (error) {
+      await m.react('❌');
+      m.reply(error.toString());
+    }
+  });
