@@ -6,77 +6,133 @@ const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
 });
 
+// helper: extract URL
+const extractUrl = (text = "") => {
+  const match = text.match(/https?:\/\/[^\s]+/g);
+  return match ? match[0] : null;
+};
+
+// helper: check TikTok URL
+const isTikTokUrl = (url = "") =>
+  /(tiktok\.com|vt\.tiktok\.com)/i.test(url);
+
+// helper: format size
+const formatSize = (bytes) =>
+  (bytes / (1024 * 1024)).toFixed(2);
+
 Sparky(
   {
     name: "tt",
     fromMe: isPublic,
     category: "downloader",
-    desc: "Download TikTok videos in HD if available.",
+    desc: "Download TikTok videos in HD/Normal quality",
   },
   async ({ m, client, args }) => {
-    if (!args || args.trim() === "") {
-      return await client.sendMessage(m.jid, { text: "❌ *Usage:* `.tt <URL>`" }, { quoted: m });
-    }
-
-    // Improved URL validation
-    const urlMatch = args.match(/(https?:\/\/[^\s]+)/g);
-    const tiktokRegex = /(tiktok\.com|vt\.tiktok\.com)/;
-    if (!urlMatch || !tiktokRegex.test(urlMatch[0])) {
-      return await client.sendMessage(m.jid, { text: "❌ *Invalid TikTok URL.*" }, { quoted: m });
-    }
-
-    const tiktokUrl = urlMatch[0];
-    await m.react('⏳');
-
     try {
-      const apiUrl = `https://tikwm.com/api/?url=${encodeURIComponent(tiktokUrl)}`;
-      const response = await axios.get(apiUrl, { httpsAgent, timeout: 15000 });
-      const data = response.data;
+      if (!args?.trim()) {
+        return client.sendMessage(
+          m.jid,
+          { text: "❌ *Usage:* `.tt <TikTok URL>`" },
+          { quoted: m }
+        );
+      }
 
-      if (!data || !data.data) throw new Error("Video not found!");
+      const tiktokUrl = extractUrl(args);
 
-      // ⚡ HD තිබුණොත් ඒක ගන්නවා, නැත්නම් Normal එක
-      const videoUrl = data.data.hdplay || data.data.play;
-      if (!videoUrl) throw new Error("No video URL found (HD or normal).");
+      if (!tiktokUrl || !isTikTokUrl(tiktokUrl)) {
+        return client.sendMessage(
+          m.jid,
+          { text: "❌ *Please provide a valid TikTok URL.*" },
+          { quoted: m }
+        );
+      }
 
-      const isHD = data.data.hdplay ? "High Quality (HD) ✅" : "Normal Quality ⚠️";
-      const title = data.data.title || "No Title";
+      await m.react("⏳");
 
-      await m.react('⬇️');
+      const apiUrl = `https://tikwm.com/api/?url=${encodeURIComponent(
+        tiktokUrl
+      )}`;
 
+      let response;
+      try {
+        response = await axios.get(apiUrl, {
+          httpsAgent,
+          timeout: 15000,
+        });
+      } catch (err) {
+        throw new Error("TikTok API request failed. Try again.");
+      }
+
+      const data = response?.data?.data;
+
+      if (!data) {
+        throw new Error("No video data found.");
+      }
+
+      const videoUrl = data.hdplay || data.play;
+
+      if (!videoUrl) {
+        throw new Error("No downloadable video URL found.");
+      }
+
+      const quality = data.hdplay
+        ? "High Quality (HD) ✅"
+        : "Normal Quality ⚠️";
+
+      const title = data.title || "Untitled TikTok";
+
+      await m.react("⬇️");
+
+      // download video
       const videoStream = await axios.get(videoUrl, {
         httpsAgent,
         responseType: "arraybuffer",
-        timeout: 20000
+        timeout: 20000,
       });
+
       const videoBuffer = Buffer.from(videoStream.data);
+      const sizeMB = formatSize(videoBuffer.length);
 
-      const captionText = `🎬 *❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎*\n\n📝 *Title:* ${title}\n✨ *Quality:* ${isHD}\n📦 *Size:* ${(videoBuffer.length / (1024 * 1024)).toFixed(2)}MB\n\n*Downloaded by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎*`;
+      const caption = `
+🎬 *TikTok Downloader*
 
-      // 16MB limit check
-      if (videoBuffer.length > 16 * 1024 * 1024) {
-        await client.sendMessage(m.jid, {
-          document: videoBuffer,
-          mimetype: "video/mp4",
-          fileName: `tiktok_${Date.now()}.mp4`,
-          caption: captionText
-        }, { quoted: m });
-      } else {
-        await client.sendMessage(m.jid, {
-          video: videoBuffer,
-          caption: captionText,
-        }, { quoted: m });
-      }
+📝 *Title:* ${title}
+✨ *Quality:* ${quality}
+📦 *Size:* ${sizeMB} MB
 
-      await m.react('✅');
+🤖 _Downloaded via ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎_
+      `.trim();
 
+      const payload =
+        videoBuffer.length > 16 * 1024 * 1024
+          ? {
+              document: videoBuffer,
+              mimetype: "video/mp4",
+              fileName: `tiktok_${Date.now()}.mp4`,
+              caption,
+            }
+          : {
+              video: videoBuffer,
+              caption,
+            };
+
+      await client.sendMessage(m.jid, payload, { quoted: m });
+
+      await m.react("✅");
     } catch (error) {
-      await m.react('❌');
-      console.error("TikTok error:", error);
-      let errorMsg = error.message.includes("timeout")
-        ? "❌ *Timeout:* Server took too long."
-        : `❌ *Error:* ${error.message}`;
-      await client.sendMessage(m.jid, { text: errorMsg }, { quoted: m });
+      console.error("TikTok downloader error:", error);
+
+      await m.react("❌");
+
+      const msg = error.message?.includes("timeout")
+        ? "❌ Server timeout. Please try again."
+        : `❌ Error: ${error.message || "Unknown error"}`;
+
+      return client.sendMessage(
+        m.jid,
+        { text: msg },
+        { quoted: m }
+      );
     }
   }
 );
