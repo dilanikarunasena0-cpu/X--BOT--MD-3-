@@ -13,10 +13,15 @@ Sparky({
 }, async ({ client, m }) => {
 
     try {
-        // 1. Message එක image එකක්ද කියලා check කිරීම (Caption හෝ Reply)
-        const hasImage = m.image || (m.quoted && m.quoted.image);
+        // 1. Reply කරපු message එකක් තියෙනවා නම් ඒක quoted වලට ගන්නවා
+        const quoted = m.quoted ? m.quoted : null;
 
-        if (!hasImage) {
+        // 2. දැනට එවපු message එක image එකක්ද, නැත්නම් reply කරපු message එක image එකක්ද කියලා හරියටම check කිරීම
+        // (මෙහි m.message?.imageMessage හෝ quoted?.type === 'imageMessage' වැනි ක්‍රම මඟින් නිවැරදිව හඳුනාගනී)
+        const isCurrentImage = m.image || m.type === 'imageMessage';
+        const isQuotedImage = quoted && (quoted.image || quoted.type === 'imageMessage' || quoted.mtype === 'imageMessage');
+
+        if (!isCurrentImage && !isQuotedImage) {
             await client.sendMessage(m.jid, {
                 react: { text: "❌", key: m.key }
             });
@@ -27,15 +32,24 @@ Sparky({
             react: { text: "⏳", key: m.key }
         });
 
-        // 2. Image එක download කරගැනීම
-        const buffer = m.image ? await m.download() : await m.quoted.download();
+        // 3. Image එක download කරගැනීම (Reply එකෙන් හෝ කෙලින්ම Caption එකෙන්)
+        let buffer;
+        if (isCurrentImage) {
+            buffer = await m.download();
+        } else if (isQuotedImage) {
+            buffer = await quoted.download();
+        }
+
+        if (!buffer) {
+            throw new Error("Could not download image buffer");
+        }
 
         const form = new FormData();
         form.append("image", buffer, {
             filename: "image.jpg"
         });
 
-        // 3. DeepAI Toonify API එකට image එක යැවීම
+        // 4. DeepAI Toonify API එකට image එක යැවීම
         const response = await axios.post(
             "https://api.deepai.org/api/toonify",
             form,
@@ -54,7 +68,7 @@ Sparky({
             throw new Error("No output image returned");
         }
 
-        // 4. Cartoon වුණු image එක download කරගැනීම
+        // 5. Cartoon වුණු image එක download කරගැනීම
         const cartoonImage = await axios.get(
             response.data.output_url,
             { responseType: "arraybuffer" }
@@ -64,7 +78,7 @@ Sparky({
             react: { text: "✅", key: m.key }
         });
 
-        // 5. Cartoon photo එක Caption එකත් සමඟ reply එකක් විදිහට යැවීම
+        // 6. Cartoon photo එක Caption එකත් සමඟ reply එකක් විදිහට යැවීම
         await client.sendMessage(
             m.jid,
             {
@@ -89,4 +103,3 @@ Sparky({
         return await m.reply("⚠️ Cartoon conversion failed. Make sure the photo has a clear face and try again.");
     }
 });
-
