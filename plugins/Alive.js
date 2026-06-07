@@ -120,19 +120,19 @@ Sparky({
 │✨ Bot is Active & Online!
 │🧠 Owner: ${ownerName}
 │⚡ Version: ${config.VERSION || "1.0.0"}
-│📝 Prefix: ${prefix}
-│📳 Mode: ${config.WORK_TYPE || "public"}
+│📝 Prefix: [${prefix}]
+│📳 Mode: [${config.WORK_TYPE || "public"}]
 │💾 RAM: ${ramUsed} / ${ramTotal}
 │🧩 CPU: ${cpuInfo.name}
-│🚀 CPU Speed: GTR SPEED
+│🚀 CPU Speed: ${cpuInfo.speed}
 │📦 Storage: ${storageInfo}
 │🌐 Network: ${networkSpeed}
-│🖥️ Host: Redmi 12c
+│🖥️ Host: ${os.hostname()}
 │⌛ Uptime: ${runtime(process.uptime())}
 ╰────────────────◉
 > ${botName} WhatsApp Bot
 
-`*Reply with:*`
+*Reply with:*
 1️⃣ Ping
 2️⃣ Menu
 `;
