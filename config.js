@@ -77,9 +77,9 @@ module.exports = {
 	SUDO: process.env.SUDO || "94763353368",
 	WORK_TYPE: process.env.WORK_TYPE || "public",
 	SAVE_STATUS: toBool(process.env.SAVE_STATUS || "false"),
-	STATUS_REPLY: toBool(process.env.STATUS_REPLY || "true"),
+	STATUS_REPLY: toBool(process.env.STATUS_REPLY || "false"),
 	STATUS_REPLY_MSG: process.env.STATUS_REPLY_MSG || "Nice Status Brother 🦫✨",
-	STATUS_REACTION: toBool(process.env.STATUS_REACTION || "false"),
+	STATUS_REACTION: toBool(process.env.STATUS_REACTION || "true"),
 	STATUS_REACTION_EMOJI: process.env.STATUS_REACTION_EMOJI || "🍉,🍓,🎀,💀,💗,📍,🔪,🛒,☠️,🐍,👍🏻",
 	WARN_COUNT: process.env.WARN_COUNT || "3"
 };
