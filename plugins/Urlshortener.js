@@ -58,11 +58,11 @@ Sparky({
             await client.sendMessage(m.jid, { react: { text: "✅", key: m.key } });
 
             // Professional Format එකකින් මැසේජ් එක නිර්මාණය කිරීම
-            let result = `🔗 *URL SHORTENER REPORT* 🔗\n\n`;
+            let result = `🔗 `*URL SHORTENER REPORT*` \n\n`;
             result += `📝 *Original Link:* ${longUrl}\n\n`;
             result += `🚀 *Shortened Link:* ${shortUrl}\n\n`;
             result += `🌐 *Domain Provider:* ${domain}\n`;
-            result += `📅 *Generated Time:* ${createdAt} (SLT)\n\n`;
+            result += `📅 *Generated Time:* ${createdAt} \n\n`;
             result += `*❖ Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎*`;
 
             await client.sendMessage(m.jid, { text: result }, { quoted: m });
