@@ -1,54 +1,75 @@
-const { commands, prefix } = require("./commands");
+const { cmd, commands } = require("../command");
+const fs = require("fs");
+const path = require("path");
 
-const icons = {
-  General: "📌",
-  Utility: "⚙️",
-  Fun: "🎮",
-  Admin: "🛡️"
-};
+const pendingMenu = {};
+const numberEmojis = ["0️⃣","1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣"];
 
-function getDateTime() {
-  const now = new Date();
+const headerImage = "https://tmpfiles.org/dl/wPw7K2QEwP0J/file_1780820244644.jpeg?raw=tru";
 
-  return {
-    date: now.toLocaleDateString("en-GB"),
-    time: now.toLocaleTimeString("en-GB", { hour12: false })
-  };
-}
+cmd({
+  pattern: "menu",
+  react: "📋",
+  desc: "Show command categories",
+  category: "main",
+  filename: __filename
+}, async (test, m, msg, { from, sender, reply }) => {
+  await test.sendMessage(from, { react: { text: "📋", key: m.key } });
 
-function buildMenu() {
+  const commandMap = {};
 
-  const { date, time } = getDateTime();
-
-  const categories = [...new Set(commands.map(c => c.category))];
-
-  const totalCmds = commands.length;
-
-  let text =
-`╭━━〔 🤖 𝗣𝗥𝗘𝗠𝗜𝗨𝗠 𝗕𝗢𝗧 〕━━╮
-│ 👑 Owner : Isanka
-│ ⚡ Prefix : ${prefix}
-│ 📅 Date : ${date}
-│ ⏰ Time : ${time}
-│ 📊 Commands : ${totalCmds}
-╰━━━━━━━━━━━━━━━━━━━━╯\n`;
-
-  for (const cat of categories) {
-
-    text += `\n╭──〔 ${icons[cat] || "📁"} ${cat.toUpperCase()} 〕──╮\n`;
-
-    const cmds = commands.filter(c => c.category === cat);
-
-    for (const cmd of cmds) {
-      text += `│ ◦ ${prefix}${cmd.name} ➜ ${cmd.description}\n`;
-    }
-
-    text += `╰────────────────────╯\n`;
+  for (const command of commands) {
+    if (command.dontAddCommandList) continue;
+    const category = (command.category || "MISC").toUpperCase();
+    if (!commandMap[category]) commandMap[category] = [];
+    commandMap[category].push(command);
   }
 
-  text += `\n💡 Type ${prefix}help for more info`;
+  const categories = Object.keys(commandMap);
 
-  return text;
-}
+  let menuText = `*MAIN MENU*\n`;
+  menuText += `───────────────────────\n`;
 
-module.exports = { buildMenu };
+  categories.forEach((cat, i) => {
+    const emojiIndex = (i + 1).toString().split("").map(n => numberEmojis[n]).join("");
+    menuText += `┃ ${emojiIndex} *${cat}* (${commandMap[cat].length})\n`;
+  });
+
+  menuText += `───────────────────────\n`;
+
+  await test.sendMessage(from, {
+    image: { url: headerImage },
+    caption: menuText,
+  }, { quoted: m });
+
+  pendingMenu[sender] = { step: "category", commandMap, categories };
+});
+
+cmd({
+  filter: (text, { sender }) => pendingMenu[sender] && pendingMenu[sender].step === "category" && /^[1-9][0-9]*$/.test(text.trim())
+}, async (test, m, msg, { from, body, sender, reply }) => {
+  await test.sendMessage(from, { react: { text: "✅", key: m.key } });
+
+  const { commandMap, categories } = pendingMenu[sender];
+  const index = parseInt(body.trim()) - 1;
+  if (index < 0 || index >= categories.length) return reply("❌ Invalid selection.");
+
+  const selectedCategory = categories[index];
+  const cmdsInCategory = commandMap[selectedCategory];
+
+  let cmdText = `*${selectedCategory} COMMANDS*\n`;
+  cmdsInCategory.forEach(c => {
+    const patterns = [c.pattern, ...(c.alias || [])].filter(Boolean).map(p => `.${p}`);
+    cmdText += `${patterns.join(", ")} - ${c.desc || "No description"}\n`;
+  });
+  cmdText += `───────────────────────\n`;
+  cmdText += `Total Commands: ${cmdsInCategory.length}\n`;
+
+  await test.sendMessage(from, {
+    image: { url: headerImage },
+    caption: cmdText,
+  }, { quoted: m });
+
+  delete pendingMenu[sender];
+});
+
