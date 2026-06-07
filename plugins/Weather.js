@@ -9,7 +9,7 @@ const weatherEmoji = {
 };
 
 Sparky({
-    name: "weather",
+    name: "w",
     alias: ["w", "climate"],
     category: "tools",
     fromMe: isPublic,
