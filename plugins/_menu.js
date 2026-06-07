@@ -1,173 +1,54 @@
-Sparky({
-    name: "menu",
-    category: "misc",
-    fromMe: isPublic,
-    desc: "List all available commands"
-}, async ({ client, m, args }) => {
-    try {
+const { commands, prefix } = require("./commands");
 
-        if (args) {
-            for (let i of plugins.commands) {
-                if (i.name.test(args)) {
-                    await m.reply(style(`*command : ${args.trim()}*\n*description : ${i.desc.toLowerCase()}*`));
-                    return;
-                }
-            }
-            await m.reply(style("_oops command not found_"));
-            return;
-        }
+const icons = {
+  General: "📌",
+  Utility: "⚙️",
+  Fun: "🎮",
+  Admin: "🛡️"
+};
 
-        let [date, time] = new Date()
-            .toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
-            .split(",");
+function getDateTime() {
+  const now = new Date();
 
-        let menu = `╭━━━〔${config.BOT_INFO.split(";")[0].toLowerCase()}〕━━>
-┃╭━━━━━━━━━━━━━◉
-┃┃• owner : ${config.BOT_INFO.split(";")[1].toLowerCase()}
-┃┃• mode : ${config.WORK_TYPE.toLowerCase()}
-┃┃• prefix : ${m.prefix}
-┃┃• platform : ${SERVER}
-┃┃• date : ${date}
-┃┃• time : ${time}
-┃┃• uptime : ${await m.uptime()}
-┃┃• plugins : ${commands.length}
-┃╰━━━━━━━━━━━━━◉
-╰━━━━━━━━━━━━━>\n${readMore}\n\n`;
+  return {
+    date: now.toLocaleDateString("en-GB"),
+    time: now.toLocaleTimeString("en-GB", { hour12: false })
+  };
+}
 
-        let cmnd = [];
-        let type = [];
+function buildMenu() {
 
-        commands.map((command) => {
+  const { date, time } = getDateTime();
 
-            if (!command.name || command.dontAddCommandList) return;
+  const categories = [...new Set(commands.map(c => c.category))];
 
-            let name = command.name;
-            let cmd;
+  const totalCmds = commands.length;
 
-            try {
-                cmd = name.source
-                    .split('\\s*')[1]
-                    .toString()
-                    .match(/(\W*)([A-Za-züşiğ öç1234567890]*)/)[2];
-            } catch {
-                return;
-            }
+  let text =
+`╭━━〔 🤖 𝗣𝗥𝗘𝗠𝗜𝗨𝗠 𝗕𝗢𝗧 〕━━╮
+│ 👑 Owner : Isanka
+│ ⚡ Prefix : ${prefix}
+│ 📅 Date : ${date}
+│ ⏰ Time : ${time}
+│ 📊 Commands : ${totalCmds}
+╰━━━━━━━━━━━━━━━━━━━━╯\n`;
 
-            let category = command.category
-                ? command.category.toLowerCase()
-                : "misc";
+  for (const cat of categories) {
 
-            cmnd.push({ cmd, category });
+    text += `\n╭──〔 ${icons[cat] || "📁"} ${cat.toUpperCase()} 〕──╮\n`;
 
-            if (!type.includes(category)) type.push(category);
-        });
+    const cmds = commands.filter(c => c.category === cat);
 
-        cmnd.sort();
-        type.sort();
+    for (const cmd of cmds) {
+      text += `│ ◦ ${prefix}${cmd.name} ➜ ${cmd.description}\n`;
+    }
 
-        type.forEach((cmmd) => {
+    text += `╰────────────────────╯\n`;
+  }
 
-            menu += `╭━━━>
-┠┌─⭓『 *${cmmd.toUpperCase()}* 』\n`;
+  text += `\n💡 Type ${prefix}help for more info`;
 
-            let comad = cmnd.filter(c => c.category == cmmd);
-            comad.forEach(({ cmd }) => {
-                menu += `┃│• ${cmd.trim()}\n`;
-            });
+  return text;
+}
 
-            menu += `┃└─⭓\n╰━━━━>\n`;
-        });
-
-        let sperky = {
-            key: {
-                participants: "0@s.whatsapp.net",
-                remoteJid: "status@broadcast",
-                fromMe: false,
-                id: "Hey!"
-            },
-            message: {
-                contactMessage: {
-                    displayName: config.BOT_INFO.split(";")[0],
-                    vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:y\nitem1.TEL;waid=${m.sender.split('@')[0]}:${m.sender.split('@')[0]}\nEND:VCARD`
-                }
-            },
-            participant: "0@s.whatsapp.net"
-        };
-
-        // 🔥 MENU SEND (NO return anywhere)
-
-        if (config.MENU_TYPE.toLowerCase() === "big") {
-
-            await client.sendMessage(m.jid, {
-                text: style(menu),
-                contextInfo: {
-                    externalAdReply: {
-                        title: style(`Hey ${m.pushName}!`),
-                        body: style(config.BOT_INFO.split(";")[0]),
-                        sourceUrl: "https://aswinsparky.qzz.io",
-                        mediaType: 1,
-                        renderLargerThumbnail: true,
-                        thumbnailUrl: config.BOT_INFO.split(";")[2]
-                    }
-                }
-            }, { quoted: m });
-
-        }
-
-        else if (config.MENU_TYPE.toLowerCase() === "image") {
-
-            await m.sendFromUrl(config.BOT_INFO.split(";")[2], {
-                caption: style(menu)
-            });
-
-        }
-
-        else if (config.MENU_TYPE.toLowerCase() === "small") {
-
-            await client.sendMessage(m.jid, {
-                text: style(menu),
-                contextInfo: {
-                    externalAdReply: {
-                        title: style(`Hey ${m.pushName}!`),
-                        body: style(config.BOT_INFO.split(";")[0]),
-                        sourceUrl: "https://aswinsparky.qzz.io",
-                        mediaUrl: "https://aswinsparky.qzz.io",
-                        mediaType: 1,
-                        renderLargerThumbnail: false,
-                        thumbnailUrl: config.BOT_INFO.split(";")[2]
-                    }
-                }
-            }, { quoted: sperky });
-
-        }
-
-        else if (config.MENU_TYPE.toLowerCase() === "document") {
-
-            await client.sendMessage(m.jid, {
-                document: { url: 'https://i.ibb.co/pnPNhMZ/2843ad26fd25.jpg' },
-                caption: menu,
-                mimetype: 'application/zip',
-                fileName: config.BOT_INFO.split(";")[0]
-            }, { quoted: sperky });
-
-        }
-
-        else if (config.MENU_TYPE.toLowerCase() === "text") {
-
-            await client.sendMessage(m.jid, {
-                text: style(menu)
-            }, { quoted: sperky });
-
-        }
-
-        else if (config.MENU_TYPE.toLowerCase() === "video") {
- 
-            await client.sendMessage(m.jid, {
-                video: { url: config.BOT_INFO.split(";")[2] },
-                caption: style(menu),
-                gifPlayback: true
-            }, { quoted: sperky });
-
-        }
-
-});
+module.exports = { buildMenu };
