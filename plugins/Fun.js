@@ -8,92 +8,107 @@ const questions = [
     { q: "ලෝකේ උසම කන්ද මොකක්ද?", a: ["everest", "එවරස්ට්"] }
 ];
 
-const activeGames = new Map();
+const pendingUsers = new Map(); // join වෙනකම් wait කරන users
 
 // උඹේ group link එක මෙතන දාපන්
 const GROUP_LINK = "https://chat.whatsapp.com/HiN8XDhsKCoGVie6s1YbqR?s=cl&p=a&mlu=3";
+const GROUP_ID = "120363416124042671@g.us"; // group ID එක. පහත කියන විදිහට ගන්න
 
 Sparky({
     name: "fun",
     alias: ["games", "game"],
     category: "fun",
     fromMe: isPublic,
-    desc: "Fun games + Auto join group"
-}, async ({ client, m, args }) => {
-    const gameType = args[0]?.toLowerCase();
-    const gameId = m.jid + m.sender;
+    desc: "Group එකට join වෙලා quiz ගහන්න"
+}, async ({ client, m }) => {
     const isGroup = m.jid.endsWith("@g.us");
 
-    // 1. Private chat එකකින්.fun ගැහුවොත් group එකට join කරවනවා
-    if (!isGroup && GROUP_LINK) {
-        try {
-            const inviteCode = GROUP_LINK.split("chat.whatsapp.com/")[1]?.split("?")[0];
+    // Group එක ඇතුලේ.fun ගැහුවොත් quiz එක එවනවා
+    if (isGroup) {
+        const gameId = m.jid + m.sender;
+        const q = questions[Math.floor(Math.random() * questions.length)];
+        pendingUsers.set(gameId, { type: "quiz", answer: q.a, time: Date.now() });
 
-            if (inviteCode) {
-                await m.reply("⏳ ඔයාව group එකට add කරනවා...");
-                await client.groupAcceptInvite(inviteCode);
-                await m.reply("✅ Group එකට join උනා! දැන් group එක ඇතුලේ.game ගහපන් 🎮");
+        await client.sendMessage(m.jid, {
+            text: `*🎮 QUIZ TIME!* 🎮\n\n@${m.sender.split("@")[0]} ❓ ${q.q}\n\n⏱️ තත්පර 20\n📝 උත්තරේ: *.funn උඹේ උත්තරේ*`,
+            mentions: [m.sender]
+        }, { quoted: m });
+
+        setTimeout(() => {
+            if (pendingUsers.has(gameId)) {
+                pendingUsers.delete(gameId);
+                client.sendMessage(m.jid, { text: `⏰ Time's up!\n✅ හරි උත්තරේ: *${q.a[0]}*` }, { quoted: m });
             }
-        } catch (err) {
-            console.log("Join error:", err.message);
-            // Join fail උනාට quiz එක නවත්තන්නේ නෑ
-        }
+        }, 20000);
+        return;
     }
 
-    if (gameType === "stop") {
-        activeGames.delete(gameId);
-        return await m.reply("🛑 Game එක නැවැත්තුවා!");
-    }
+    // Private chat එකේ.fun ගැහුවොත් link එක එවනවා + track කරනවා
+    pendingUsers.set(m.sender, { waitingJoin: true, time: Date.now() });
 
-    if (activeGames.has(gameId) && gameType!== "stop") {
-        return await m.reply("⚠️ දැනටමත් game එකක් run වෙනවා! උත්තරේ දෙන්න.funn උත්තරේ");
-    }
+    await m.reply(`*🎮 Quiz ගහන්න group එකට join වෙන්න* 🎮\n\n👇 මේ link එකෙන් join වෙයන්\n${GROUP_LINK}\n\nJoin උනාට පස්සේ group එක ඇතුලේ quiz එක auto එයි ✅\n⏱️ තත්පර 60ක් ඇතුලත join වෙන්න`);
 
-    // 2. Quiz auto start -.fun ගැහුවම ප්‍රශ්නය එනවා
-    const q = questions[Math.floor(Math.random() * questions.length)];
-    activeGames.set(gameId, { type: "quiz", answer: q.a, time: Date.now() });
-
-    await client.sendMessage(m.jid, {
-        text: `*🎮 QUIZ TIME!* 🎮\n\n❓ ${q.q}\n\n⏱️ තත්පර 20 ඇතුලත උත්තරේ දෙන්න\n📝 Format: *.funn උඹේ උත්තරේ*\n🛑 නවත්තන්න:.fun stop`
-    }, { quoted: m });
-
-    setTimeout(() => {
-        if (activeGames.has(gameId)) {
-            activeGames.delete(gameId);
-            client.sendMessage(m.jid, { text: `⏰ Time's up!\n✅ හරි උත්තරේ: *${q.a[0]}*` }, { quoted: m });
-        }
-    }, 20000);
+    // 60s පස්සේ pending එක අයින් කරනවා
+    setTimeout(() => pendingUsers.delete(m.sender), 60000);
 });
 
-// උත්තරේ check කරන command එක - වෙනසක් නෑ
+// උත්තරේ check කරන command එක
 Sparky({
     name: "funn",
-    alias: ["ans", "answer"],
+    alias: ["ans"],
     category: "fun",
     fromMe: isPublic,
-    desc: "Game එකට උත්තරේ submit කරන්න"
 }, async ({ client, m, args }) => {
-    const gameId = m.jid + m.sender;
-    const game = activeGames.get(gameId);
+    const isGroup = m.jid.endsWith("@g.us");
+    if (!isGroup) return await m.reply("⚠️ Group එක ඇතුලේ විතරක් උත්තරේ දෙන්න");
 
-    if (!game) {
-        return await m.reply("⚠️ දැනට active game එකක් නෑ. අලුත් game එකක් start කරන්න.fun");
+    const gameId = m.jid + m.sender;
+    const game = pendingUsers.get(gameId);
+
+    if (!game || game.waitingJoin) {
+        return await m.reply("⚠️ දැනට quiz එකක් නෑ..fun ගහලා අලුත් එකක් ගන්න");
     }
 
     const userAnswer = args.join(" ").toLowerCase().trim();
-    if (!userAnswer) {
-        return await m.reply("📝 උත්තරේ type කරපන්. Ex:.funn කොළඹ");
+    if (game.answer.some(a => userAnswer.includes(a.toLowerCase()))) {
+        pendingUsers.delete(gameId);
+        await client.sendMessage(m.jid, {
+            text: `🎉 සුපිරිය @${m.sender.split("@")[0]}! උඹ දින්නා! ✅\nඋත්තරේ: *${game.answer[0]}*`,
+            mentions: [m.sender]
+        }, { quoted: m });
+    } else {
+        const timeLeft = Math.max(0, Math.floor((20000 - (Date.now() - game.time))/1000));
+        await m.reply(`❌ වැරදියි @${m.sender.split("@")[0]}!\n⏱️ තව ${timeLeft}s ඉතුරුයි\n.ආපහු try:.funn උත්තරේ`, { mentions: [m.sender] });
     }
+});
 
-    if (game.type === "quiz") {
-        if (game.answer.some(a => userAnswer.includes(a.toLowerCase()))) {
-            activeGames.delete(gameId);
-            await client.sendMessage(m.jid, {
-                text: `🎉 සුපිරිය! උඹ දින්නා! ✅\nඋත්තරේ: *${game.answer[0]}*`
-            }, { quoted: m });
-        } else {
-            const timeLeft = Math.max(0, Math.floor((20000 - (Date.now() - game.time))/1000));
-            await m.reply(`❌ වැරදියි මචන්!\n⏱️ තව තත්පර ${timeLeft} ඉතුරුයි\nආපහු try කරපන්:.funn උත්තරේ`);
+// මේක තමයි main trick එක - user join උනාද බලන listener
+Sparky({
+    name: "joinlistener",
+    fromMe: false,
+    dontAddCommandList: true
+}, async ({ client, m }) => {
+    client.ev.on("group-participants.update", async (update) => {
+        // කවුරුහරි join උනාද බලනවා
+        if (update.action === "add" && update.id === GROUP_ID) {
+            for (const user of update.participants) {
+                // pending list එකේ ඉන්න user කෙනෙක්ද බලනවා
+                if (pendingUsers.has(user) && pendingUsers.get(user).waitingJoin) {
+                    pendingUsers.delete(user);
+
+                    // 2s delay දාලා group එකට quiz යවනවා
+                    setTimeout(async () => {
+                        const q = questions[Math.floor(Math.random() * questions.length)];
+                        const gameId = GROUP_ID + user;
+                        pendingUsers.set(gameId, { type: "quiz", answer: q.a, time: Date.now() });
+
+                        await client.sendMessage(GROUP_ID, {
+                            text: `🎉 Welcome @${user.split("@")[0]}! Group එකට join උනාට ස්තූතියි ✅\n\n*🎮 QUIZ TIME!*\n❓ ${q.q}\n\n⏱️ තත්පර 20\n📝 උත්තරේ: *.funn උඹේ උත්තරේ*`,
+                            mentions: [user]
+                        });
+                    }, 2000);
+                }
+            }
         }
-    }
+    });
 });
