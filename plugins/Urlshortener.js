@@ -58,7 +58,7 @@ Sparky({
             await client.sendMessage(m.jid, { react: { text: "✅", key: m.key } });
 
             // Professional Format එකකින් මැසේජ් එක නිර්මාණය කිරීම
-            let result = `🔗 `*URL SHORTENER REPORT*`🔗\n\n`;
+            let result = `🔗 *URL SHORTENER REPORT* 🔗\n\n`;
             result += `📝 *Original Link:* ${longUrl}\n\n`;
             result += `🚀 *Shortened Link:* ${shortUrl}\n\n`;
             result += `🌐 *Domain Provider:* ${domain}\n`;
