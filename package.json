@@ -16,7 +16,7 @@
   "dependencies": {
     "@viper-x/fancytext": "^1.0.2",
     "baileys": "latest",
-    "axios": "^1.7.9",
+    "axios": "^1.7.7",
     "browser-id3-writer": "^4.4.0",
     "cheerio": "^1.0.0",
     "dotenv": "^16.4.7",
