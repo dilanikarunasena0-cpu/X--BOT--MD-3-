@@ -54,14 +54,14 @@ module.exports = {
 	DATABASE,
 	DISABLE_PM: toBool(process.env.DISABLE_PM || "false"),
 	GROQ_API_KEY: process.env.GROQ_API_KEY || "",
-	HANDLERS: (process.env.HANDLERS || process.env.HANDLER || process.env.PREFIX || "!").trim(),
+	HANDLERS: (process.env.HANDLERS || process.env.HANDLER || process.env.PREFIX || ".").trim(),
 	HEROKU_API_KEY: process.env.HEROKU_API_KEY || "",
 	HEROKU_APP_NAME: process.env.HEROKU_APP_NAME || "",
 	KOYEB_API_KEY: process.env.KOYEB_API_KEY || process.env.KOYEB_KEY || "",
 	KOYEB_SERVICE_NAME: process.env.KOYEB_SERVICE_NAME || process.env.KOYEB_APP_NAME || process.env.KOYEB_NAME || "",
 	RENDER_API_KEY: process.env.RENDER_API_KEY || process.env.RENDER_KEY || "",
 	RENDER_APP_NAME: process.env.RENDER_APP_NAME || process.env.RENDER_NAME || "",
-	LANGUAGE: process.env.LANGUAGE || "english",
+	LANGUAGE: process.env.LANGUAGE || "sinhala",
 	LOGS: toBool(process.env.LOGS || "false"),
 	MENU_TYPE: process.env.MENU_TYPE || "image", // Menu style: big, small, image, document, text, call, payment
 	MENU_FONT: process.env.MENU_FONT || "tiny", // randomStyle, strikeThrough, wingdings, vaporwave, typewriter, analucia, tildeStrikeThrough, underline, doubleUnderline, slashThrough, sparrow, heartsBetween, arrowBelow, crossAboveBelow, creepify, bubbles, mirror, squares, roundsquares, flip, tiny, createMap, serif_I, manga, ladybug, runes, serif_B, serif_BI, serif_I, fancy1, fancy2, fancy3, fancy4, fancy5, fancy6, fancy7, fancy8, fancy9, fancy10, fancy11, fancy12, fancy13, fancy14, fancy15, fancy16, fancy17, fancy18, fancy19, fancy20, fancy21, fancy22, fancy23, fancy24, fancy25, fancy26, fancy27, fancy28, fancy29, fancy30, fancy31, fancy32, fancy33
