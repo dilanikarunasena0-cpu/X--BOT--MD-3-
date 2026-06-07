@@ -2,7 +2,7 @@ const { Sparky, isPublic } = require("../lib");
 const axios = require("axios");
 const FormData = require("form-data");
 
-const API_KEY = process.env.070daead-d8c7-4459-b9e4-860fa8a1efff;
+const API_KEY = process.env.DEEPAI_API_KEY;
 
 Sparky({
 name: "enhance",
