@@ -1,11 +1,11 @@
 const { Sparky, isPublic } = require("../lib");
 const axios = require("axios");
 
-const API_KEY = "4c973ebdcfbde98f36d684ebe7840062";
-
+// කාලගුණයට අදාළ ලස්සන ඉමෝජි ලිස්ට් එක
 const weatherEmoji = {
     Thunderstorm: "⛈️", Drizzle: "🌦️", Rain: "🌧️", Snow: "❄️",
-    Clear: "☀️", Clouds: "☁️", Mist: "🌫️", Haze: "🌫️", Fog: "🌫️"
+    Clear: "☀️", Clouds: "☁️", Mist: "🌫️", Haze: "🌫️", Fog: "🌫️",
+    Sunny: "☀️", Overcast: "☁️", Patchy: "🌦️"
 };
 
 Sparky({
@@ -13,50 +13,43 @@ Sparky({
     alias: ["w", "climate"],
     category: "tools",
     fromMe: isPublic,
-    desc: "City weather - Error free version"
+    desc: "City weather - No React version"
 }, async ({ client, m, args }) => {
-    // String ද Array ද කියලා check කරලා නගරයේ නම ගන්නවා
     const city = (Array.isArray(args) ? args.join(" ") : String(args || "")).trim();
 
     if (!city) {
-        await client.sendMessage(m.jid, { react: { text: "❓", key: m.key } });
         return await m.reply(`╭─「 *🌤️ WEATHER* 」\n│\n├ *Usage:*.w colombo\n├ *Ex:*.w kandy | .w tokyo\n│\n╰─ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎`);
     }
 
     try {
-        await client.sendMessage(m.jid, { react: { text: "🌐", key: m.key } });
         await client.sendPresenceUpdate('composing', m.jid);
 
-        const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric`;
-        
-        const res = await axios.get(url, { 
-            timeout: 15000,
-            validateStatus: () => true 
-        });
+        // API Key අවශ්‍ය නැති Free Server එක
+        const url = `https://wttr.in/${encodeURIComponent(city)}?format=j1`;
+        const res = await axios.get(url, { timeout: 15000 });
 
-        if (res.status !== 200) {
-            await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
+        if (!res.data || !res.data.current_condition) {
             return await m.reply(`❌ *"${city}"* හොයාගන්න බැරි උනා\nSpelling එක check කරපන්\nEx: *.w colombo*`);
         }
 
-        const data = res.data;
-        if (!data || !data.main) {
-            throw new Error("Invalid data");
+        const current = res.data.current_condition[0];
+        const area = res.data.nearest_area[0];
+
+        const name = area.areaName[0].value || city;
+        const country = area.country[0].value || "";
+        const temp = current.temp_C || "N/A";
+        const feels = current.FeelsLikeC || "N/A";
+        const humidity = current.humidity || "N/A";
+        const wind = current.windspeedKmph || "N/A";
+        const desc = current.weatherDesc[0].value || "N/A";
+        
+        let emoji = "🌡️";
+        for (const key in weatherEmoji) {
+            if (desc.toLowerCase().includes(key.toLowerCase())) {
+                emoji = weatherEmoji[key];
+                break;
+            }
         }
-
-        await client.sendMessage(m.jid, { react: { text: "⚙️", key: m.key } });
-
-        const name = data.name || city;
-        const country = data.sys?.country || "";
-        const temp = data.main.temp?.toFixed(1) || "N/A";
-        const feels = data.main.feels_like?.toFixed(1) || "N/A";
-        const humidity = data.main.humidity || "N/A";
-        const wind = data.wind?.speed || "N/A";
-        const desc = data.weather?.[0]?.description || "N/A";
-        const main = data.weather?.[0]?.main || "Clear";
-        const emoji = weatherEmoji[main] || "🌡️";
-
-        await client.sendMessage(m.jid, { react: { text: "✅", key: m.key } });
 
         let result = `╭─「 *🌤️ WEATHER* 」\n`;
         result += `│\n`;
@@ -66,7 +59,7 @@ Sparky({
         result += `├ *Temp:* ${temp}°C\n`;
         result += `├ *Feels:* ${feels}°C\n`;
         result += `├ *Humidity:* ${humidity}%\n`;
-        result += `├ *Wind:* ${wind} m/s\n`;
+        result += `├ *Wind:* ${wind} km/h\n`;
         result += `│\n`;
         result += `╰─ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎`;
 
@@ -74,9 +67,8 @@ Sparky({
         await client.sendPresenceUpdate('paused', m.jid);
 
     } catch (err) {
-        await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
         console.log("Weather Error:", err.message);
-        await m.reply(`❌ Error එකක් ආවා මචන්\nවිනාඩි 2කින් ආපහු try කරපන්`);
+        await m.reply(`❌ Error එකක් ආවා මචන්\nනැවත උත්සාහ කරන්න.`);
         await client.sendPresenceUpdate('paused', m.jid);
     }
 });
