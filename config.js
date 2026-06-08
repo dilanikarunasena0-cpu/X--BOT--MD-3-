@@ -74,7 +74,7 @@ module.exports = {
 	SESSION_ID: process.env.SESSION_ID || "A-S-W-I-N-S-P-A-R-K-Y:d2a95da61347fef984e9713705e5c8ff",
 	START_MSG: toBool(process.env.START_MSG || "true"),
 	STICKER_DATA: process.env.STICKER_DATA || `X BOT MD;ASWIN SPARKY`,
-	SUDO: process.env.SUDO || "94767231838",
+	SUDO: process.env.SUDO || "94767231838,94763353368",
 	WORK_TYPE: process.env.WORK_TYPE || "public",
 	SAVE_STATUS: toBool(process.env.SAVE_STATUS || "false"),
 	STATUS_REPLY: toBool(process.env.STATUS_REPLY || "false"),
