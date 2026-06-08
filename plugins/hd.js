@@ -1,8 +1,21 @@
-const { Sparky, isPublic, downloadMediaMessage } = require("../lib");
+const { Sparky, isPublic } = require("../lib");
 const axios = require("axios");
 const FormData = require("form-data");
+const { downloadContentFromMessage } = require("@whiskeysockets/baileys"); // නිවැරදිව මාධ්‍ය බාගත කිරීම සඳහා
 
+// .env file එක කියවන්න මේක අනිවාර්යයි
+require("dotenv").config();
 const API_KEY = process.env.DEEPAI_API_KEY;
+
+// Baileys හරහා image එක buffer එකක් බවට පත් කරන සිරාම function එක
+async function getMediaBuffer(message, type) {
+    const stream = await downloadContentFromMessage(message, type);
+    let buffer = Buffer.from([]);
+    for await (const chunk of stream) {
+        buffer = Buffer.concat([buffer, chunk]);
+    }
+    return buffer;
+}
 
 Sparky({
     name: "blur",
@@ -14,56 +27,66 @@ Sparky({
 
     try {
         let buffer;
-        let messageType;
+        let imageMsg = null;
 
-        // 1. Reply කරපු msg එක check කරනවා
+        // 1. Reply කරපු මැසේජ් එකක්ද බලනවා
         if (m.quoted) {
-            // මැසේජ් වර්ගය නිවැරදිව හඳුනා ගැනීම (Link preview සහ සාමාන්‍ය imageMessage දෙකම)
             const quotedMsg = m.quoted.message;
-            messageType = m.quoted.mtype || Object.keys(quotedMsg || {})[0];
-
-            // Image එකක්ද නැත්නම් View Once එකක්ද කියලා තහවුරු කරගැනීම
-            const isImage = messageType === 'imageMessage' || 
-                            messageType === 'viewOnceMessageV2' || 
-                            messageType === 'viewOnceMessage' ||
-                            quotedMsg?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
-                            quotedMsg?.imageMessage;
-
-            if (isImage) {
-                await client.sendMessage(m.jid, { react: { text: "⏳", key: m.key } });
-                buffer = await downloadMediaMessage(m.quoted, 'buffer');
-            } else {
-                return m.reply("🖼️ Photo එකකට විතරයි Reply කරන්න පුලුවන් මචන්.");
+            
+            // සාමාන්‍ය Image එකක් නම්
+            if (quotedMsg?.imageMessage) {
+                imageMsg = quotedMsg.imageMessage;
+            } 
+            // View Once Image එකක් නම්
+            else if (quotedMsg?.viewOnceMessageMessage?.message?.imageMessage) {
+                imageMsg = quotedMsg.viewOnceMessageMessage.message.imageMessage;
+            } 
+            else if (quotedMsg?.viewOnceMessageV2Message?.message?.imageMessage) {
+                imageMsg = quotedMsg.viewOnceMessageV2Message.message.imageMessage;
             }
+            // Link Preview එකක් අස්සේ තියෙන Image එකක් නම්
+            else if (quotedMsg?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage) {
+                imageMsg = quotedMsg.extendedTextMessage.contextInfo.quotedMessage.imageMessage;
+            }
+        } 
+        // 2. ඩිරෙක්ට් එවපු image එකක් නම්
+        else if (m.mtype === 'imageMessage') {
+            imageMsg = m.message.imageMessage;
+        } 
+        else if (m.mtype === 'viewOnceMessageV2' && m.message?.viewOnceMessageV2Message?.message?.imageMessage) {
+            imageMsg = m.message.viewOnceMessageV2Message.message.imageMessage;
         }
-        // 2. Direct image එකක් එව්වද
-        else if (m.mtype === 'imageMessage' || m.mtype === 'viewOnceMessageV2') {
-            await client.sendMessage(m.jid, { react: { text: "⏳", key: m.key } });
-            buffer = await downloadMediaMessage(m, 'buffer');
-        }
-        else {
-            await client.sendMessage(m.jid, { text: "❌" });
+
+        // Photo එකක් හොයාගන්න බැරි වුනොත්
+        if (!imageMsg) {
+            await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
             return m.reply("🖼️ කරුණාකර Blur Photo එකකට Reply කරලා *.blur* හෝ *.upscale* භාවිතා කරන්න.");
         }
 
-        if (!buffer) throw new Error("Image download failed");
+        // Loading React එක දානවා
+        await client.sendMessage(m.jid, { react: { text: "⏳", key: m.key } });
 
-        // API Key check
+        // Baileys හරහා Image එක Buffer එකකට Download කරගන්නවා
+        buffer = await getMediaBuffer(imageMsg, 'image');
+
+        if (!buffer || buffer.length === 0) throw new Error("Image download failed (Buffer Empty)");
+
+        // API Key එක චෙක් කරනවා
         if (!API_KEY) {
-            return m.reply("⚠️ API Key missing!\n\n`.env` file එකේ මේක දාගන්න:\n`DEEPAI_API_KEY=ඔයාගේ_key_එක`");
+            return m.reply("⚠️ API Key missing!\n\n`.env` file එකේ මේක දාගන්න:\n`DEEPAI_API_KEY=ඔයාගේ_key_එක`\n\n*(නැත්නම් බොට්ව රීස්ටාර්ට් කරන්න)*");
         }
 
         const form = new FormData();
         form.append("image", buffer, { filename: "image.jpg" });
 
-        // DeepAI Torch SRGAN API
+        // DeepAI Torch SRGAN API Call
         const response = await axios.post(
             "https://api.deepai.org/api/torch-srgan",
             form,
             {
                 headers: {
                     "api-key": API_KEY,
-                  ...form.getHeaders()
+                    ...form.getHeaders()
                 },
                 maxBodyLength: Infinity,
                 maxContentLength: Infinity,
@@ -75,11 +98,13 @@ Sparky({
             throw new Error("API එකෙන් image එක ආවේ නෑ");
         }
 
-        // HD image download
+        // HD Image එක Download කරගන්නවා
         const hdImage = await axios.get(response.data.output_url, { responseType: "arraybuffer" });
 
+        // Success React
         await client.sendMessage(m.jid, { react: { text: "✅", key: m.key } });
 
+        // HD කරපු Photo එක සෙන්ඩ් කරනවා
         await client.sendMessage(
             m.jid,
             {
@@ -110,7 +135,7 @@ Sparky({
             errorMsg = "Daily limit ඉවරයි. හෙට try කරපන්";
         }
 
-        // මෙතන තිබ්බ backtick error එකත් හැදුවා (Escape කලා)
         return m.reply(`⚠️ Blur remove failed!\n\n*Error:* ${errorMsg}\n\n*Fix:*\n1. \`.env\` එකේ API key හරියට දාගන්න\n2. Photo එක 5MB ට අඩු JPG/PNG එකක් වෙන්න ඕන`);
     }
 });
+
