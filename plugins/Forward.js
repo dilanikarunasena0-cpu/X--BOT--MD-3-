@@ -1,5 +1,4 @@
 const { Sparky, isPublic } = require("../lib");
-const { generateWAMessageFromContent } = require("@whiskeysockets/baileys");
 
 Sparky({
     name: "fwd",
@@ -75,7 +74,7 @@ Sparky({
 
         for (const jid of targets) {
 
-            // --- 1. DOCUMENT MODE ---
+            // --- 1. DOCUMENT MODE (.fwd doc) ---
             if (mode === "doc") {
                 if (!quoted.download) {
                     await m.reply("❌ මෙය මාධ්‍ය (Media) ගොනුවක් නොවේ. Document ලෙස යැවිය නොහැක.");
@@ -99,16 +98,15 @@ Sparky({
                 const copied = JSON.parse(JSON.stringify(quoted.message));
 
                 if (copied[msgType]) {
-                    // Caption එක වෙනස් කිරීම
                     if (copied[msgType].caption !== undefined || msgType === "imageMessage" || msgType === "videoMessage") {
                         copied[msgType].caption = caption;
                     }
                     
-                    // ViewOnce bypass කිරීම (තිබේ නම්)
                     if (copied[msgType].viewOnce) {
                         copied[msgType].viewOnce = false;
                     }
 
+                    // වඩාත්ම ස්ථාවර forward ක්‍රමය
                     await client.sendMessage(jid, { forward: { key: m.quoted.key, message: copied } });
                     success++;
                     continue;
@@ -116,24 +114,28 @@ Sparky({
             }
 
             // --- 3. NORMAL FORWARD MODE (.fwd) ---
-            // copyNForward වෙනුවට Baileys නිල forward ක්‍රමය භාවිතය
             if (quoted.message) {
-                const msg = await generateWAMessageFromContent(jid, quoted.message, {
-                    userJid: client.user.id
-                });
-                
-                // ViewOnce තිබේ නම් එය සාමාන්‍ය මැසේජ් එකක් බවට පත් කරයි
-                const msgType = Object.keys(msg.message)[0];
-                if (msg.message[msgType] && msg.message[msgType].viewOnce) {
-                    msg.message[msgType].viewOnce = false;
+                const msgType = Object.keys(quoted.message)[0];
+                const copied = JSON.parse(JSON.stringify(quoted.message));
+
+                // ViewOnce bypass කිරීම
+                if (copied[msgType] && copied[msgType].viewOnce) {
+                    copied[msgType].viewOnce = false;
                 }
 
-                await client.relayMessage(jid, msg.message, { messageId: msg.key.id });
+                // relayMessage වෙනුවට ක්‍රැෂ් නොවන, නිල Baileys forward object එක භාවිතය
+                await client.sendMessage(jid, { 
+                    forward: { 
+                        key: m.quoted.key, 
+                        message: copied 
+                    } 
+                });
+                
                 success++;
             }
         }
 
-        // අවසාන ප්‍රතිචාරය දක්වන්න
+        // සාර්ථක ප්‍රතිචාරය දක්වන්න
         await client.sendMessage(m.jid, { react: { text: "✅", key: m.key } });
 
         return m.reply(`
