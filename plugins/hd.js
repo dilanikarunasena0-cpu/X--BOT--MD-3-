@@ -1,100 +1,88 @@
-const { Sparky, isPublic } = require("../lib");
+const { Sparky, isPublic, downloadMediaMessage } = require("../lib");
 const axios = require("axios");
 const FormData = require("form-data");
 
-const API_KEY = process.env.DEEPAI_API_KEY; // .env file එකෙන් ගන්නවා
+const API_KEY = process.env.DEEPAI_API_KEY;
 
 Sparky({
-    name: "upscale",
-    alias: ["hd", "enhance", "hq", "4x", "quality"],
+    name: "blur",
+    alias: ["upscale", "hd", "enhance", "hq", "4x", "quality"],
     category: "ai",
     fromMe: isPublic,
-    desc: "Reply කරපු low quality photo එක AI එකෙන් HD කරන්න"
-}, async ({ client, m }) => {
+    desc: "Reply කරපු blur/low quality photo එක AI එකෙන් HD කරන්න"
+}, async ({ client, m, args }) => {
 
     try {
-        // 1. Reply කරපු message එකක් තියෙනවා නම් ඒක quoted වලට ගන්නවා
-        const quoted = m.quoted ? m.quoted : null;
+        let buffer;
+        let messageType;
 
-        // 2. Image එකක්ද කියලා check කිරීම
-        const isCurrentImage = m.image || m.type === 'imageMessage';
-        const isQuotedImage = quoted && (quoted.image || quoted.type === 'imageMessage' || quoted.mtype === 'imageMessage');
+        // 1. Reply කරපු msg එක check කරනවා
+        if (m.quoted) {
+            messageType = m.quoted.mtype || Object.keys(m.quoted.message || {})[0];
 
-        if (!isCurrentImage && !isQuotedImage) {
-            await client.sendMessage(m.jid, {
-                react: { text: "❌", key: m.key }
-            });
-            return await m.reply("🖼️ කරුණාකර Blur Photo එකකට Reply කරලා *.upscale* හෝ *.hd* භාවිතා කරන්න.");
+            if (messageType === 'imageMessage' || messageType === 'viewOnceMessageV2' || messageType === 'viewOnceMessage') {
+                await client.sendMessage(m.jid, { react: { text: "⏳", key: m.key } });
+                buffer = await downloadMediaMessage(m.quoted, 'buffer');
+            } else {
+                return m.reply("🖼️ Photo එකකට විතරයි Reply කරන්න පුලුවන් මචන්");
+            }
         }
+        // 2. Direct image එකක් එව්වද
+        else if (m.mtype === 'imageMessage' || m.mtype === 'viewOnceMessageV2') {
+            await client.sendMessage(m.jid, { react: { text: "⏳", key: m.key } });
+            buffer = await downloadMediaMessage(m, 'buffer');
+        }
+        else {
+            await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
+            return m.reply("🖼️ කරුණාකර Blur Photo එකකට Reply කරලා *.blur* හෝ *.upscale* භාවිතා කරන්න.");
+        }
+
+        if (!buffer) throw new Error("Image download failed");
 
         // API Key check
         if (!API_KEY) {
-            return m.reply("⚠️ API Key missing! `.env` file එකේ `DEEPAI_API_KEY=your_key` කියලා දාගන්න");
-        }
-
-        await client.sendMessage(m.jid, {
-            react: { text: "⏳", key: m.key }
-        });
-
-        // 3. Image එක download කරගැනීම
-        let buffer;
-        if (isCurrentImage) {
-            buffer = await m.download();
-        } else if (isQuotedImage) {
-            buffer = await quoted.download();
-        }
-
-        if (!buffer) {
-            throw new Error("Could not download image buffer");
+            return m.reply("⚠️ API Key missing!\n\n`.env` file එකේ මේක දාගන්න:\n`DEEPAI_API_KEY=ඔයාගේ_key_එක`");
         }
 
         const form = new FormData();
-        form.append("image", buffer, {
-            filename: "image.jpg"
-        });
+        form.append("image", buffer, { filename: "image.jpg" });
 
-        // 4. DeepAI Torch SRGAN API එකට image එක යැවීම
+        // DeepAI Torch SRGAN API
         const response = await axios.post(
             "https://api.deepai.org/api/torch-srgan",
             form,
             {
                 headers: {
                     "api-key": API_KEY,
-                    ...form.getHeaders()
+                  ...form.getHeaders()
                 },
                 maxBodyLength: Infinity,
                 maxContentLength: Infinity,
-                timeout: 90000
+                timeout: 120000
             }
         );
 
-        if (!response.data.output_url) {
-            throw new Error("No output image returned");
+        if (!response.data?.output_url) {
+            throw new Error("API එකෙන් image එක ආවේ නෑ");
         }
 
-        // 5. HD වුණු image එක download කරගැනීම
-        const hdImage = await axios.get(
-            response.data.output_url,
-            { responseType: "arraybuffer" }
-        );
+        // HD image download
+        const hdImage = await axios.get(response.data.output_url, { responseType: "arraybuffer" });
 
-        await client.sendMessage(m.jid, {
-            react: { text: "✅", key: m.key }
-        });
+        await client.sendMessage(m.jid, { react: { text: "✅", key: m.key } });
 
-        // 6. HD photo එක Caption එකත් සමඟ reply එකක් විදිහට යැවීම
         await client.sendMessage(
             m.jid,
             {
                 image: Buffer.from(hdImage.data),
-                caption: `✨ *AI PHOTO ENHANCER PRO*
+                caption: `✨ *AI BLUR REMOVER PRO*
 
-🖼️ Quality Enhanced Successfully  
+🖼️ Blur Remove + HD Upgrade
 🚀 Engine: DeepAI Torch SRGAN
 📈 Scale: 4x AI Upscale
-💎 Result: HD Detail Recovery
+💎 Result: Crystal Clear Detail
 
-💡 *Face photo සහ Old blurry images වලට Best Results*
+💡 *Blur photo, Pixelated, Old images වලට Best*
 
 ❖ Powered By X-KADIYA-MD 💎`
             },
@@ -103,10 +91,16 @@ Sparky({
 
     } catch (err) {
         console.error(err);
-        await client.sendMessage(m.jid, {
-            react: { text: "⚠️", key: m.key }
-        });
+        await client.sendMessage(m.jid, { react: { text: "⚠️", key: m.key } });
+
         let errorMsg = err.response?.data?.err || err.message;
-        return await m.reply(`⚠️ Image enhancement failed!\n\n*Error:* ${errorMsg}\n\n*Fix:*\n1. `.env` එකේ API key එක හරියට දාගන්න\n2. Image එක 5MB ට අඩු JPG/PNG එකකින් try කරපන්\n3. Daily limit ඉවර නම් හෙට try කරපන්`);
+
+        if (errorMsg.includes("Invalid API key")) {
+            errorMsg = "API Key එක වැරදියි. DeepAI එකේ key එක හරියට දාගන්න";
+        } else if (errorMsg.includes("Daily quota")) {
+            errorMsg = "Daily limit ඉවරයි. හෙට try කරපන්";
+        }
+
+        return m.reply(`⚠️ Blur remove failed!\n\n*Error:* ${errorMsg}\n\n*Fix:*\n1. `.env` එකේ API key හරියට දාගන්න\n2. Photo එක 5MB ට අඩු JPG/PNG එකක් වෙන්න ඕන`);
     }
 });
