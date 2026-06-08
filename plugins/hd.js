@@ -1,13 +1,13 @@
 const { Sparky, isPublic } = require("../lib");
 const axios = require("axios");
 const FormData = require("form-data");
-const { downloadContentFromMessage } = require("@whiskeysockets/baileys"); // නිවැරදිව මාධ්‍ය බාගත කිරීම සඳහා
+const { downloadContentFromMessage } = require("@whiskeysockets/baileys");
 
-// .env file එක කියවන්න මේක අනිවාර්යයි
+// .env file එක කියවන්න
 require("dotenv").config();
 const API_KEY = process.env.DEEPAI_API_KEY;
 
-// Baileys හරහා image එක buffer එකක් බවට පත් කරන සිරාම function එක
+// Baileys හරහා image එක buffer එකක් බවට පත් කරන function එක
 async function getMediaBuffer(message, type) {
     const stream = await downloadContentFromMessage(message, type);
     let buffer = Buffer.from([]);
@@ -99,7 +99,8 @@ Sparky({
         }
 
         // HD Image එක Download කරගන්නවා
-        const hdImage = await axios.get(response.data.output_url, { responseType: "arraybuffer" });
+        const hdImageResponse = await axios.get(response.data.output_url, { responseType: "arraybuffer" });
+        const hdBuffer = Buffer.from(hdImageResponse.data);
 
         // Success React
         await client.sendMessage(m.jid, { react: { text: "✅", key: m.key } });
@@ -108,34 +109,16 @@ Sparky({
         await client.sendMessage(
             m.jid,
             {
-                image: Buffer.from(hdImage.data),
-                caption: `✨ *AI BLUR REMOVER PRO*
-
-🖼️ Blur Remove + HD Upgrade
-🚀 Engine: DeepAI Torch SRGAN
-📈 Scale: 4x AI Upscale
-💎 Result: Crystal Clear Detail
-
-💡 *Blur photo, Pixelated, Old images වලට Best*
-
-❖ Powered By X-KADIYA-MD 💎`
+                image: hdBuffer,
+                caption: "*✨ DeepAI මඟින් සාර්ථකව HD කරන ලදි!*"
             },
             { quoted: m }
         );
 
-    } catch (err) {
-        console.error(err);
-        await client.sendMessage(m.jid, { react: { text: "⚠️", key: m.key } });
-
-        let errorMsg = err.response?.data?.err || err.message;
-
-        if (errorMsg.includes("Invalid API key")) {
-            errorMsg = "API Key එක වැරදියි. DeepAI එකේ key එක හරියට දාගන්න";
-        } else if (errorMsg.includes("Daily quota")) {
-            errorMsg = "Daily limit ඉවරයි. හෙට try කරපන්";
-        }
-
-        return m.reply(`⚠️ Blur remove failed!\n\n*Error:* ${errorMsg}\n\n*Fix:*\n1. \`.env\` එකේ API key හරියට දාගන්න\n2. Photo එක 5MB ට අඩු JPG/PNG එකක් වෙන්න ඕන`);
+    } catch (error) {
+        console.error(error);
+        await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
+        return m.reply(`❌ දෝෂයක් සිදුවුණා: ${error.message || error}`);
     }
 });
 
