@@ -2,21 +2,21 @@ const { Sparky, isPublic } = require("../lib");
 const axios = require("axios");
 const FormData = require("form-data");
 
-const API_KEY = process.env.DEEPAI_API_KEY;
+const API_KEY = process.env.DEEPAI_API_KEY; // .env file එකෙන් ගන්නවා
 
 Sparky({
-    name: "enhance",
-    alias: ["hd", "upscale", "quality"],
+    name: "upscale",
+    alias: ["hd", "enhance", "hq", "4x", "quality"],
     category: "ai",
     fromMe: isPublic,
-    desc: "Enhance low quality photos using AI"
+    desc: "Reply කරපු low quality photo එක AI එකෙන් HD කරන්න"
 }, async ({ client, m }) => {
 
     try {
         // 1. Reply කරපු message එකක් තියෙනවා නම් ඒක quoted වලට ගන්නවා
         const quoted = m.quoted ? m.quoted : null;
 
-        // 2. Caption එකක් විදිහට හෝ Reply එකක් විදිහට Image එකක් තියෙනවද කියලා නිවැරදිව Check කිරීම
+        // 2. Image එකක්ද කියලා check කිරීම
         const isCurrentImage = m.image || m.type === 'imageMessage';
         const isQuotedImage = quoted && (quoted.image || quoted.type === 'imageMessage' || quoted.mtype === 'imageMessage');
 
@@ -24,14 +24,19 @@ Sparky({
             await client.sendMessage(m.jid, {
                 react: { text: "❌", key: m.key }
             });
-            return await m.reply("🖼️ කරුණාකර Photo එකක Caption එක ලෙස හෝ Photo එකකට Reply කරලා .enhance භාවිතා කරන්න.");
+            return await m.reply("🖼️ කරුණාකර Blur Photo එකකට Reply කරලා *.upscale* හෝ *.hd* භාවිතා කරන්න.");
+        }
+
+        // API Key check
+        if (!API_KEY) {
+            return m.reply("⚠️ API Key missing! `.env` file එකේ `DEEPAI_API_KEY=your_key` කියලා දාගන්න");
         }
 
         await client.sendMessage(m.jid, {
             react: { text: "⏳", key: m.key }
         });
 
-        // 3. Image එක නිවැරදිව download කරගැනීම
+        // 3. Image එක download කරගැනීම
         let buffer;
         if (isCurrentImage) {
             buffer = await m.download();
@@ -48,7 +53,7 @@ Sparky({
             filename: "image.jpg"
         });
 
-        // DeepAI API එකට image එක යැවීම
+        // 4. DeepAI Torch SRGAN API එකට image එක යැවීම
         const response = await axios.post(
             "https://api.deepai.org/api/torch-srgan",
             form,
@@ -59,7 +64,7 @@ Sparky({
                 },
                 maxBodyLength: Infinity,
                 maxContentLength: Infinity,
-                timeout: 60000
+                timeout: 90000
             }
         );
 
@@ -67,8 +72,8 @@ Sparky({
             throw new Error("No output image returned");
         }
 
-        // Quality වුණු image එක download කරගැනීම
-        const enhanced = await axios.get(
+        // 5. HD වුණු image එක download කරගැනීම
+        const hdImage = await axios.get(
             response.data.output_url,
             { responseType: "arraybuffer" }
         );
@@ -77,16 +82,19 @@ Sparky({
             react: { text: "✅", key: m.key }
         });
 
-        // Quality වුණු image එක reply එකක් විදිහට යැවීම
+        // 6. HD photo එක Caption එකත් සමඟ reply එකක් විදිහට යැවීම
         await client.sendMessage(
             m.jid,
             {
-                image: Buffer.from(enhanced.data),
+                image: Buffer.from(hdImage.data),
                 caption: `✨ *AI PHOTO ENHANCER PRO*
 
-🖼️ Quality Enhanced Successfully
-🚀 Engine: DeepAI SRGAN
-📈 Result: HD Upscaled Image
+🖼️ Quality Enhanced Successfully  
+🚀 Engine: DeepAI Torch SRGAN
+📈 Scale: 4x AI Upscale
+💎 Result: HD Detail Recovery
+
+💡 *Face photo සහ Old blurry images වලට Best Results*
 
 ❖ Powered By X-KADIYA-MD 💎`
             },
@@ -98,6 +106,7 @@ Sparky({
         await client.sendMessage(m.jid, {
             react: { text: "⚠️", key: m.key }
         });
-        return await m.reply("⚠️ Image enhancement failed. Please try again later.");
+        let errorMsg = err.response?.data?.err || err.message;
+        return await m.reply(`⚠️ Image enhancement failed!\n\n*Error:* ${errorMsg}\n\n*Fix:*\n1. `.env` එකේ API key එක හරියට දාගන්න\n2. Image එක 5MB ට අඩු JPG/PNG එකකින් try කරපන්\n3. Daily limit ඉවර නම් හෙට try කරපන්`);
     }
 });
