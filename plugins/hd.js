@@ -18,13 +18,22 @@ Sparky({
 
         // 1. Reply කරපු msg එක check කරනවා
         if (m.quoted) {
-            messageType = m.quoted.mtype || Object.keys(m.quoted.message || {})[0];
+            // මැසේජ් වර්ගය නිවැරදිව හඳුනා ගැනීම (Link preview සහ සාමාන්‍ය imageMessage දෙකම)
+            const quotedMsg = m.quoted.message;
+            messageType = m.quoted.mtype || Object.keys(quotedMsg || {})[0];
 
-            if (messageType === 'imageMessage' || messageType === 'viewOnceMessageV2' || messageType === 'viewOnceMessage') {
+            // Image එකක්ද නැත්නම් View Once එකක්ද කියලා තහවුරු කරගැනීම
+            const isImage = messageType === 'imageMessage' || 
+                            messageType === 'viewOnceMessageV2' || 
+                            messageType === 'viewOnceMessage' ||
+                            quotedMsg?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage ||
+                            quotedMsg?.imageMessage;
+
+            if (isImage) {
                 await client.sendMessage(m.jid, { react: { text: "⏳", key: m.key } });
                 buffer = await downloadMediaMessage(m.quoted, 'buffer');
             } else {
-                return m.reply("🖼️ Photo එකකට විතරයි Reply කරන්න පුලුවන් මචන්");
+                return m.reply("🖼️ Photo එකකට විතරයි Reply කරන්න පුලුවන් මචන්.");
             }
         }
         // 2. Direct image එකක් එව්වද
@@ -33,7 +42,7 @@ Sparky({
             buffer = await downloadMediaMessage(m, 'buffer');
         }
         else {
-            await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
+            await client.sendMessage(m.jid, { text: "❌" });
             return m.reply("🖼️ කරුණාකර Blur Photo එකකට Reply කරලා *.blur* හෝ *.upscale* භාවිතා කරන්න.");
         }
 
@@ -101,6 +110,7 @@ Sparky({
             errorMsg = "Daily limit ඉවරයි. හෙට try කරපන්";
         }
 
-        return m.reply(`⚠️ Blur remove failed!\n\n*Error:* ${errorMsg}\n\n*Fix:*\n1. `.env` එකේ API key හරියට දාගන්න\n2. Photo එක 5MB ට අඩු JPG/PNG එකක් වෙන්න ඕන`);
+        // මෙතන තිබ්බ backtick error එකත් හැදුවා (Escape කලා)
+        return m.reply(`⚠️ Blur remove failed!\n\n*Error:* ${errorMsg}\n\n*Fix:*\n1. \`.env\` එකේ API key හරියට දාගන්න\n2. Photo එක 5MB ට අඩු JPG/PNG එකක් වෙන්න ඕන`);
     }
 });
