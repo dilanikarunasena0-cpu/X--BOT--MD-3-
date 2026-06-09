@@ -1,5 +1,6 @@
 const { Sparky, isPublic } = require("../lib");
 const cron = require("node-cron");
+const { downloadMediaMessage } = require("@whiskeysockets/baileys");
 
 // Schedule කරපු මැසේජ් මතක තබා ගැනීමට
 global.scheduledJobs = global.scheduledJobs || {};
@@ -9,7 +10,7 @@ Sparky({
     alias: ["schedule", "sched", "sm"],
     category: "utility",
     fromMe: isPublic,
-    desc: "Automated Message Scheduling System (Stable Fast Mode)"
+    desc: "Automated Message Scheduling System (Ultimate Stable Mode)"
 }, async ({ client, m, args }) => {
 
     const quoted = m.quoted;
@@ -19,7 +20,7 @@ Sparky({
 
     if (argsArray.length === 0) {
         const menuText = `
-⏰ *Fast Message Schedule Menu*
+⏰ *Ultimate Message Schedule Menu*
 
 *⚡ ඉක්මන් ක්‍රමය (Fast Format):*
 .time [YYYY.MM.DD] [HH:MM] [නම්බර්/current] [පණිවිඩය]
@@ -106,31 +107,52 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
             return m.reply("❌ කරුණාකර යැවිය යුතු පණිවිඩය ඇතුළත් කරන්න හෝ පණිවිඩයක් Quote කරන්න.");
         }
 
+        // Quoted message එකක් තිබේ නම් එය කලින්ම download කර buffer එකක් ලෙස තබා ගැනීම
+        let mediaBuffer = null;
+        let mediaType = null;
+        if (quoted && quoted.message) {
+            const msgKeys = Object.keys(quoted.message);
+            const type = msgKeys.find(key => key.includes("Message") || key.includes("Document") || key.includes("Audio") || key.includes("Video") || key.includes("Image"));
+            if (type) {
+                try {
+                    mediaBuffer = await downloadMediaMessage(m.quoted, "buffer", {}, { logger: console });
+                    mediaType = type.replace("Message", "").toLowerCase(); // image, video, audio, document etc.
+                } catch (err) {
+                    console.log("Media download error: ", err);
+                }
+            }
+        }
+
         const jobId = `${m.jid}_${Date.now()}`;
         await client.sendMessage(m.jid, { react: { text: "⏳", key: m.key } });
 
         global.scheduledJobs[jobId] = cron.schedule(cronTime, async () => {
             try {
-                // මෙතනදී relayMessage වෙනුවට වඩාත් ස්ථාවර sendMessage ක්‍රමය භාවිත කර ඇත
-                if (quoted) {
-                    // Quoted message එකක් තිබේ නම් එය forward (copy) කිරීමක් සිදු කරයි
-                    await client.sendMessage(targetJid, { forward: m.quoted.fakeObj }, { quoted: m.quoted.fakeObj });
+                // Media එකක් schedule කර තිබුනේ නම්
+                if (mediaBuffer && mediaType) {
+                    let sendOptions = {};
                     
-                    // අමතරව text එකක් තිබුනොත් එය වෙනම යවයි (Error නොවී පැහැදිලිව ලැබීමට)
-                    if (textMessage) {
-                        await client.sendMessage(targetJid, {
-                            text: textMessage,
-                            contextInfo: { externalAdReply }
-                        });
+                    // caption එකක් ඇතුලත් කර තිබේ නම් හෝ ටෙක්ස්ට් එකක් ඇතුලත් කර තිබේ නම්
+                    let finalCaption = textMessage || m.quoted.caption || m.quoted.text || "";
+
+                    if (mediaType === "image") sendOptions = { image: mediaBuffer, caption: finalCaption, contextInfo: { externalAdReply } };
+                    else if (mediaType === "video") sendOptions = { video: mediaBuffer, caption: finalCaption, contextInfo: { externalAdReply } };
+                    else if (mediaType === "audio") sendOptions = { audio: mediaBuffer, ptt: m.quoted.ptt || false, contextInfo: { externalAdReply } };
+                    else if (mediaType === "document") sendOptions = { document: mediaBuffer, mimetype: m.quoted.mimetype, fileName: m.quoted.fileName || "document", caption: finalCaption, contextInfo: { externalAdReply } };
+                    
+                    if (Object.keys(sendOptions).length > 0) {
+                        await client.sendMessage(targetJid, sendOptions);
                     }
-                } else {
-                    // සාමාන්‍ය Text මැසේජ් එකක් නම් කෙලින්ම යැවීම
+                } 
+                // සාමාන්‍ය text මැසේජ් එකක් පමණක් නම්
+                else {
                     await client.sendMessage(targetJid, {
                         text: textMessage,
                         contextInfo: { externalAdReply }
                     });
                 }
 
+                // සාර්ථකව මැසේජ් එක ගිය පසු Sender ට දැනුම් දීම
                 await client.sendMessage(m.jid, {
                     text: `✅ *Schedule Message Delivered!*\n\nඔබ විසින් *${displayTime}* ට සකසන ලද පණිවිඩය සාර්ථකව ලැබී ඇත.`
                 });
@@ -152,7 +174,7 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
 ╭━━━〔 SCHEDULE SUCCESS 〕━━━⬣
 ┃ ⏳ Time : ${displayTime}
 ┃ 📅 Target : ${targetJid.split("@")[0]}
-┃ 👁️ Mode : Fast & Stable Mode
+┃ 👁️ Mode : Ultimate Stable Mode
 ┃ 💎 Status : Armed & Ready
 ╰━━━━━━━━━━━━━━━━━━⬣
 
