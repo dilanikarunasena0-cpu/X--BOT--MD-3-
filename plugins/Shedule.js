@@ -1,8 +1,19 @@
 const { Sparky, isPublic } = require("../lib");
-const cron = require("node-cron");
-const { downloadMediaMessage } = require("@whiskeysockets/baileys");
+let cron;
+let downloadMediaMessage;
 
-// Schedule කරපු මැසේජ් මතක තබා ගැනීමට
+try {
+    cron = require("node-cron");
+    // බොට්ගේ Baileys library එකට අනුව auto-detect කරගැනීමට
+    downloadMediaMessage = require("@whiskeysockets/baileys").downloadMediaMessage;
+} catch (e) {
+    try {
+        downloadMediaMessage = require("@adiwajshing/baileys").downloadMediaMessage;
+    } catch (err) {
+        console.log("Baileys library not found!");
+    }
+}
+
 global.scheduledJobs = global.scheduledJobs || {};
 
 Sparky({
@@ -10,43 +21,30 @@ Sparky({
     alias: ["schedule", "sched", "sm"],
     category: "utility",
     fromMe: isPublic,
-    desc: "Automated Message Scheduling System (Ultimate Stable Mode)"
+    desc: "Automated Message Scheduling System (Safe Mode)"
 }, async ({ client, m, args }) => {
+
+    if (!cron) return m.reply("❌ 'node-cron' package එක install කර නැත. කරුණාකර 'npm i node-cron' run කරන්න.");
 
     const quoted = m.quoted;
     const imageUrl = "https://files.catbox.moe/8gd2kj.jpg";
-
     const argsArray = Array.isArray(args) ? args : (args ? args.split(" ") : []);
 
     if (argsArray.length === 0) {
         const menuText = `
-⏰ *Ultimate Message Schedule Menu*
+⏰ *Fast Message Schedule Menu*
 
-*⚡ ඉක්මන් ක්‍රමය (Fast Format):*
+*⚡ Format:*
 .time [YYYY.MM.DD] [HH:MM] [නම්බර්/current] [පණිවිඩය]
 
 _Examples:_
-→ වෙනත් අංකයකට/ගෘෘප් එකකට යවන්න:
-.time 2026.06.09 18:30 94763353368 Hi check this
-
-→ දැනට ඉන්න Chat එකට යවන්න:
-.time 2026.06.09 18:30 current Hi all
+→ .time 2026.06.09 18:30 94763353368 Hi check this
+→ .time 2026.06.09 18:30 current Hi all
 
 *📋 ලැයිස්තුව බැලීමට:*
 .time list
-
----
-💡 *සැලකිය යුතුයි:* * දිනය සදහා තිත (.) ද වෙලාව සදහා (:) ද භාවිත කරන්න.
-* වෙලාව පැය 24 ක්‍රමයට (24-Hour Format) ලබා දිය යුතුය.
-* මැසේජ් එක ශ්‍රී ලංකාවේ වේලාවට (\`Asia/Colombo\`) ක්‍රියාත්මක වේ.
-
-Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
         `;
-
-        return client.sendMessage(m.jid, {
-            image: { url: imageUrl },
-            caption: menuText
-        }, { quoted: m });
+        return client.sendMessage(m.jid, { image: { url: imageUrl }, caption: menuText }, { quoted: m });
     }
 
     if (argsArray[0] === "list") {
@@ -68,7 +66,7 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
 
         const externalAdReply = {
             title: "Automated Schedule System",
-            body: "Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎",
+            body: "Powered by ❖Ƭʜᴇ 𝐗-ΚΑΔΙΥΑ-ΜΔ 💎",
             thumbnailUrl: imageUrl,
             sourceUrl: "https://whatsapp.com",
             mediaType: 1
@@ -88,7 +86,7 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
         const [hour, minute] = timeInput.split(":").map(Number);
 
         if (!year || !month || !day || hour === undefined || minute === undefined) {
-            return m.reply("❌ දිනය හෝ වෙලාව වලංගු නැත. (නිවැරදි ක්‍රමය: YYYY.MM.DD HH:MM)");
+            return m.reply("❌ දිනය හෝ වෙලාව වලංගು නැත. (නිවැරදි ක්‍රමය: YYYY.MM.DD HH:MM)");
         }
 
         if (targetInput && targetInput.toLowerCase() !== "current") {
@@ -104,19 +102,19 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
         displayTime = `${dateInput} දින වෙලාව ${timeInput} ට`;
 
         if (!textMessage && !quoted) {
-            return m.reply("❌ කරුණාකර යැවිය යුතු පණිවිඩය ඇතුළත් කරන්න හෝ පණිවිඩයක් Quote කරන්න.");
+            return m.reply("❌ කරුණාකර යැවිය යුතු පණිවිඩය ඇතුළත් කරන්න.");
         }
 
-        // Quoted message එකක් තිබේ නම් එය කලින්ම download කර buffer එකක් ලෙස තබා ගැනීම
         let mediaBuffer = null;
         let mediaType = null;
-        if (quoted && quoted.message) {
+        
+        if (quoted && quoted.message && downloadMediaMessage) {
             const msgKeys = Object.keys(quoted.message);
             const type = msgKeys.find(key => key.includes("Message") || key.includes("Document") || key.includes("Audio") || key.includes("Video") || key.includes("Image"));
             if (type) {
                 try {
                     mediaBuffer = await downloadMediaMessage(m.quoted, "buffer", {}, { logger: console });
-                    mediaType = type.replace("Message", "").toLowerCase(); // image, video, audio, document etc.
+                    mediaType = type.replace("Message", "").toLowerCase();
                 } catch (err) {
                     console.log("Media download error: ", err);
                 }
@@ -128,11 +126,8 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
 
         global.scheduledJobs[jobId] = cron.schedule(cronTime, async () => {
             try {
-                // Media එකක් schedule කර තිබුනේ නම්
                 if (mediaBuffer && mediaType) {
                     let sendOptions = {};
-                    
-                    // caption එකක් ඇතුලත් කර තිබේ නම් හෝ ටෙක්ස්ට් එකක් ඇතුලත් කර තිබේ නම්
                     let finalCaption = textMessage || m.quoted.caption || m.quoted.text || "";
 
                     if (mediaType === "image") sendOptions = { image: mediaBuffer, caption: finalCaption, contextInfo: { externalAdReply } };
@@ -143,16 +138,13 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
                     if (Object.keys(sendOptions).length > 0) {
                         await client.sendMessage(targetJid, sendOptions);
                     }
-                } 
-                // සාමාන්‍ය text මැසේජ් එකක් පමණක් නම්
-                else {
+                } else {
                     await client.sendMessage(targetJid, {
                         text: textMessage,
                         contextInfo: { externalAdReply }
                     });
                 }
 
-                // සාර්ථකව මැසේජ් එක ගිය පසු Sender ට දැනුම් දීම
                 await client.sendMessage(m.jid, {
                     text: `✅ *Schedule Message Delivered!*\n\nඔබ විසින් *${displayTime}* ට සකසන ලද පණිවිඩය සාර්ථකව ලැබී ඇත.`
                 });
@@ -174,21 +166,14 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
 ╭━━━〔 SCHEDULE SUCCESS 〕━━━⬣
 ┃ ⏳ Time : ${displayTime}
 ┃ 📅 Target : ${targetJid.split("@")[0]}
-┃ 👁️ Mode : Ultimate Stable Mode
 ┃ 💎 Status : Armed & Ready
-╰━━━━━━━━━━━━━━━━━━⬣
+╰━━━━━━━━━━━━━━━━━━⬣`;
 
-Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎`;
-
-        return client.sendMessage(m.jid, {
-            image: { url: imageUrl },
-            caption: successText
-        }, { quoted: m });
+        return client.sendMessage(m.jid, { image: { url: imageUrl }, caption: successText }, { quoted: m });
 
     } catch (e) {
         console.log(e);
-        await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
-        return m.reply(`❌ Error:\n${e.message}`);
+        return m.reply(`❌ Error: ${e.message}`);
     }
 });
 
