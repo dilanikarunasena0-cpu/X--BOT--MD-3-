@@ -11,8 +11,9 @@ Sparky({
     const quoted = m.quoted;
     const imageUrl = "https://files.catbox.moe/8gd2kj.jpg";
 
+    // කිසිවක් Quote නොකර .fwd ලෙස පමණක් භාවිතා කළ විට (Menu with Image)
     if (!quoted) {
-        return m.reply(`
+        const menuText = `
 📤 *Forward Menu*
 
 .fwd
@@ -42,8 +43,13 @@ Sparky({
 * 📁 *Media to Document:* ඕනෑම Photo එකක් හෝ Video එකක් Quality එක අඩු නොවී Document (.doc) එකක් ලෙස Forward කළ හැක.
 * ✍️ *Custom Caption:* මුල් පණිවිඩයේ ඇති Caption එක වෙනස් කර ඔබ කැමති අලුත් Caption එකක් සමඟ Forward කිරීමට හැකියාව ඇත.
 
-💀 `Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎`
-        `);
+Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
+        `;
+
+        return client.sendMessage(m.jid, {
+            image: { url: imageUrl },
+            caption: menuText
+        }, { quoted: m });
     }
 
     try {
@@ -116,7 +122,6 @@ Sparky({
             // --- 2. ViewOnce, Ephemeral ස්ථර ඉවත් කර පණිවිඩයේ සැබෑ අභ්‍යන්තරය ලබා ගැනීම ---
             let rawMessage = JSON.parse(JSON.stringify(quoted.message));
             
-            // ViewOnceV2 හෝ Ephemeral වැනි ස්ථර ඇතුළත පණිවිඩය ඇත්නම් එය පිටතට ගැනීම
             if (rawMessage.viewOnceMessageV2) rawMessage = rawMessage.viewOnceMessageV2.message;
             if (rawMessage.viewOnceMessage) rawMessage = rawMessage.viewOnceMessage.message;
             if (rawMessage.ephemeralMessage) rawMessage = rawMessage.ephemeralMessage.message;
@@ -124,7 +129,6 @@ Sparky({
             const msgType = Object.keys(rawMessage)[0];
             if (!msgType) continue;
 
-            // ViewOnce flag එක false කිරීම
             if (rawMessage[msgType] && rawMessage[msgType].viewOnce) {
                 rawMessage[msgType].viewOnce = false;
             }
@@ -134,7 +138,6 @@ Sparky({
                 if (rawMessage[msgType] && (rawMessage[msgType].caption !== undefined || msgType === "imageMessage" || msgType === "videoMessage")) {
                     rawMessage[msgType].caption = caption;
                 } else if (msgType === "conversation" || msgType === "extendedTextMessage") {
-                    // Text message එකක් නම් text එක වෙනස් කිරීම
                     if (msgType === "conversation") {
                         rawMessage = { extendedTextMessage: { text: caption } };
                     } else {
@@ -152,7 +155,7 @@ Sparky({
                 };
             }
 
-            // GenerateMessageFromContent හෝ relayMessage මඟින් වඩාත් ස්ථාවරව පණිවිඩය යැවීම
+            // relayMessage මඟින් පණිවිඩය යැවීම
             await client.relayMessage(jid, rawMessage, {});
             success++;
         }
@@ -181,3 +184,4 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎`;
         return m.reply(`❌ Error:\n${e.message}`);
     }
 });
+
