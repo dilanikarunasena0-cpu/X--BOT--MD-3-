@@ -9,7 +9,7 @@ Sparky({
     alias: ["schedule", "sched", "sm"],
     category: "utility",
     fromMe: isPublic,
-    desc: "Automated Message Scheduling System"
+    desc: "Automated Message Scheduling System (Fast Mode)"
 }, async ({ client, m, args }) => {
 
     const quoted = m.quoted;
@@ -21,25 +21,25 @@ Sparky({
     // කිසිවක් ඇතුළත් නොකර .time ගැසූ විට ලැබෙන Menu එක
     if (argsArray.length === 0) {
         const menuText = `
-⏰ *Advanced Message Schedule Menu*
+⏰ *Fast Message Schedule Menu*
 
-*1. විනාඩි ක්‍රමයට (Minutes Mode):*
-.time [විනාඩි] [පණිවිඩය]
-_Example: .time 5 Hello_
+*⚡ ඉක්මන් ක්‍රමය (Fast Format):*
+.time [YYYY.MM.DD] [HH:MM] [නම්බර්/current] [පණිවිඩය]
 
-*2. නිශ්චිත දිනය සහ වෙලාවට (Date & Time Mode):*
-.time [YYYY-MM-DD]_[HH:MM] | [නම්බර්/Current] | [පණිවිඩය]
-_Example: .time 2026-06-15_14:30 | current | Hi all_
-_Example: .time 2026-06-15_14:30 | 9477xxxxxxx | Hi all_
+_Examples:_
+→ වෙනත් අංකයකට/ගෘෘප් එකකට යවන්න:
+.time 2026.06.09 18:30 94763353368 Hi check this
 
-*3. Quoted Media Schedule කිරීම:*
-Media එකක් Quote කර .time [විනාඩි] හෝ දිනය/වෙලාව ලබා දෙන්න.
+→ දැනට ඉන්න Chat එකට යවන්න:
+.time 2026.06.09 18:30 current Hi all
 
-*4. ලැයිස්තුව බැලීමට:*
+*📋 ලැයිස්තුව බැලීමට:*
 .time list
 
 ---
-💡 *සැලකිය යුතුයි:* වෙලාව පැය 24 ක්‍රමයට (24-Hour Format) ලබා දිය යුතුය. (උදා: සවස 2:30 යනු 14:30 වේ)
+💡 *සැලකිය යුතුයි:* * දිනය සදහා තිත (.) ද වෙලාව සදහා (:) ද භාවිත කරන්න.
+* වෙලාව පැය 24 ක්‍රමයට (24-Hour Format) ලබා දිය යුතුය.
+* මැසේජ් එක ශ්‍රී ලංකාවේ වේලාවට (\`Asia/Colombo\`) ක්‍රියාත්මක වේ.
 
 Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
         `;
@@ -76,61 +76,39 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
             mediaType: 1
         };
 
-        // -------------------------------------------------------------
-        // ක්‍රමය A: දිනය සහ වෙලාව අනුව ක්‍රියා කිරීම
-        // -------------------------------------------------------------
-        if (argsArray[0].includes("_")) {
-            const fullInput = argsArray.join(" ");
-            const parts = fullInput.split("|").map(p => p.trim());
-
-            if (parts.length < 2 && !quoted) {
-                return m.reply("❌ වැරදි Format එකක්. කරුණාකර Format එක පරීක්ෂා කරන්න.\nඋදා: `.time 2026-06-15_14:30 | current | මැසේජ් එක`");
-            }
-
-            const dateTimeInput = parts[0]; 
-            const targetInput = parts[1];   
-            textMessage = parts.slice(2).join(" | "); 
-
-            const [datePart, timePart] = dateTimeInput.split("_");
-            if (!datePart || !timePart) return m.reply("❌ දිනය සහ වෙලාව නිවැරදිව ඇතුළත් කරන්න. (YYYY-MM-DD_HH:MM)");
-
-            const [year, month, day] = datePart.split("-").map(Number);
-            const [hour, minute] = timePart.split(":").map(Number);
-
-            if (!year || !month || !day || hour === undefined || minute === undefined) {
-                return m.reply("❌ දිනය හෝ වෙලාව වලංගු නැත.");
-            }
-
-            // Target JID එක තීරණය කිරීම
-            if (targetInput && targetInput.toLowerCase() !== "current") {
-                let cleanNum = targetInput.replace(/\D/g, "");
-                if (cleanNum.endsWith("@g.us")) {
-                    targetJid = cleanNum;
-                } else {
-                    targetJid = `${cleanNum}@s.whatsapp.net`;
-                }
-            }
-
-            // Cron Format එක සකසා ගැනීම
-            cronTime = `${minute} ${hour} ${day} ${month} *`;
-            displayTime = `${datePart} වෙලාව ${timePart} ට`;
-
-        } 
-        // -------------------------------------------------------------
-        // ක්‍රමය B: සාමාන්‍ය විනාඩි ගණන අනුව ක්‍රියා කිරීම
-        // -------------------------------------------------------------
-        else {
-            const minutes = parseInt(argsArray[0]);
-            if (isNaN(minutes) || minutes <= 0) {
-                return m.reply("❌ කරුණාකර වලංගු විනාඩි ගණනක් හෝ දිනය/වෙලාව ඇතුළත් කරන්න.");
-            }
-
-            textMessage = argsArray.slice(1).join(" ");
-            
-            const date = new Date(Date.now() + minutes * 60000);
-            cronTime = `${date.getMinutes()} ${date.getHours()} ${date.getDate()} ${date.getMonth() + 1} *`;
-            displayTime = `විනාඩි ${minutes} කින්`;
+        // Inputs වෙන් කර හඳුනා ගැනීම (Space මගින්)
+        if (argsArray.length < 3 && !quoted) {
+            return m.reply("❌ වැරදි Format එකක්. උදා: `.time 2026.06.09 17:45 94763353368 ඔයාගේ මැසේජ් එක`");
         }
+
+        const dateInput = argsArray[0]; // 2026.06.09
+        const timeInput = argsArray[1]; // 17:45
+        const targetInput = argsArray[2]; // number or current
+        
+        // මැසේජ් එක ඉතිරි සියලුම args එකතු කර සාදා ගැනීම
+        textMessage = argsArray.slice(3).join(" "); 
+
+        // දිනය සහ වෙලාව split කර ගැනීම
+        const [year, month, day] = dateInput.split(".").map(Number);
+        const [hour, minute] = timeInput.split(":").map(Number);
+
+        if (!year || !month || !day || hour === undefined || minute === undefined) {
+            return m.reply("❌ දිනය හෝ වෙලාව වලංගු නැත. (නිවැරදි ක්‍රමය: YYYY.MM.DD HH:MM)");
+        }
+
+        // Target JID එක තීරණය කිරීම
+        if (targetInput && targetInput.toLowerCase() !== "current") {
+            let cleanNum = targetInput.replace(/\D/g, "");
+            if (targetInput.endsWith("@g.us")) {
+                targetJid = targetInput.trim();
+            } else {
+                targetJid = `${cleanNum}@s.whatsapp.net`;
+            }
+        }
+
+        // Cron Format එක සකසා ගැනීම
+        cronTime = `${minute} ${hour} ${day} ${month} *`;
+        displayTime = `${dateInput} දින වෙලාව ${timeInput} ට`;
 
         if (!textMessage && !quoted) {
             return m.reply("❌ කරුණාකර යැවිය යුතු පණිවිඩය ඇතුළත් කරන්න හෝ පණිවිඩයක් Quote කරන්න.");
@@ -139,7 +117,7 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
         const jobId = `${m.jid}_${Date.now()}`;
         await client.sendMessage(m.jid, { react: { text: "⏳", key: m.key } });
 
-        // Cron Job එක Register කිරීම
+        // ශ්‍රී ලංකාවේ වේලාවටම (Timezone: Asia/Colombo) Cron Job එක Register කිරීම
         global.scheduledJobs[jobId] = cron.schedule(cronTime, async () => {
             try {
                 if (quoted) {
@@ -166,7 +144,7 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
                     });
                 }
 
-                // සාර්ථකව මැසේජ් එක ගිය පසු ඔබට (Sender) දැනුම් දීම
+                // සාර්ථකව මැසේජ් එක ගිය පසු Sender ට දැනුම් දීම
                 await client.sendMessage(m.jid, {
                     text: `✅ *Schedule Message Delivered!*\n\nඔබ විසින් *${displayTime}* ට සකසන ලද පණිවිඩය සාර්ථකව යවන ලදී.`
                 });
@@ -179,6 +157,9 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
                     delete global.scheduledJobs[jobId];
                 }
             }
+        }, {
+            scheduled: true,
+            timezone: "Asia/Colombo"
         });
 
         // තහවුරු කිරීමේ Message එක
@@ -186,7 +167,7 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
 ╭━━━〔 SCHEDULE SUCCESS 〕━━━⬣
 ┃ ⏳ Time : ${displayTime}
 ┃ 📅 Target : ${targetJid.split("@")[0]}
-┃ 👁️ Mode : Advanced Auto-Trigger
+┃ 👁️ Mode : Fast Sri Lanka Time
 ┃ 💎 Status : Armed & Ready
 ╰━━━━━━━━━━━━━━━━━━⬣
 
