@@ -51,7 +51,6 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
         let targetInput;
         let caption = "";
 
-        // args එක String එකක් නම් Array එකක් බවට පත් කරගැනීම
         const argsArray = Array.isArray(args) ? args : (args ? args.split(" ") : []);
 
         if (argsArray[0] === "doc" || argsArray[0] === "cc") {
@@ -84,6 +83,15 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
 
         let success = 0;
 
+        // Ad Context ව්‍යුහය පොදුවේ අර්ථ දැක්වීම
+        const externalAdReply = {
+            title: "Advanced Forward System",
+            body: "Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎",
+            thumbnailUrl: imageUrl,
+            sourceUrl: "https://whatsapp.com",
+            mediaType: 1
+        };
+
         for (const jid of targets) {
 
             // --- 1. DOCUMENT MODE (.fwd doc) ---
@@ -98,50 +106,78 @@ Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎
                     document: buffer,
                     mimetype: quoted.mimetype || "application/octet-stream",
                     fileName: quoted.fileName || `file_${Date.now()}`,
-                    contextInfo: {
-                        externalAdReply: {
-                            title: "Advanced Forward System",
-                            body: "Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎",
-                            thumbnailUrl: imageUrl,
-                            sourceUrl: "https://whatsapp.com",
-                            mediaType: 1
-                        }
-                    }
+                    contextInfo: { externalAdReply }
                 });
 
                 success++;
                 continue;
             }
 
-            // --- 2. CAPTION CHANGE MODE (.fwd cc) ---
-            if (mode === "cc" && caption && quoted.message) {
-                const msgType = Object.keys(quoted.message)[0];
-                const copied = JSON.parse(JSON.stringify(quoted.message));
+            // --- 2. ViewOnce, Ephemeral ස්ථර ඉවත් කර පණිවිඩයේ සැබෑ අභ්‍යන්තරය ලබා ගැනීම ---
+            let rawMessage = JSON.parse(JSON.stringify(quoted.message));
+            
+            // ViewOnceV2 හෝ Ephemeral වැනි ස්ථර ඇතුළත පණිවිඩය ඇත්නම් එය පිටතට ගැනීම
+            if (rawMessage.viewOnceMessageV2) rawMessage = rawMessage.viewOnceMessageV2.message;
+            if (rawMessage.viewOnceMessage) rawMessage = rawMessage.viewOnceMessage.message;
+            if (rawMessage.ephemeralMessage) rawMessage = rawMessage.ephemeralMessage.message;
 
-                if (copied[msgType]) {
-                    if (copied[msgType].caption !== undefined || msgType === "imageMessage" || msgType === "videoMessage") {
-                        copied[msgType].caption = caption;
+            const msgType = Object.keys(rawMessage)[0];
+            if (!msgType) continue;
+
+            // ViewOnce flag එක false කිරීම
+            if (rawMessage[msgType] && rawMessage[msgType].viewOnce) {
+                rawMessage[msgType].viewOnce = false;
+            }
+
+            // --- 3. CAPTION CHANGE MODE (.fwd cc) ---
+            if (mode === "cc" && caption) {
+                if (rawMessage[msgType] && (rawMessage[msgType].caption !== undefined || msgType === "imageMessage" || msgType === "videoMessage")) {
+                    rawMessage[msgType].caption = caption;
+                } else if (msgType === "conversation" || msgType === "extendedTextMessage") {
+                    // Text message එකක් නම් text එක වෙනස් කිරීම
+                    if (msgType === "conversation") {
+                        rawMessage = { extendedTextMessage: { text: caption } };
+                    } else {
+                        rawMessage[msgType].text = caption;
                     }
-                    
-                    if (copied[msgType].viewOnce) {
-                        copied[msgType].viewOnce = false;
-                    }
-
-                    // ContextInfo එකතු කිරීම
-                    copied[msgType].contextInfo = {
-                        ...copied[msgType].contextInfo,
-                        externalAdReply: {
-                            title: "Advanced Forward System",
-                            body: "Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎",
-                            thumbnailUrl: imageUrl,
-                            sourceUrl: "https://whatsapp.com",
-                            mediaType: 1
-                        }
-                    };
-
-                    await client.sendMessage(jid, { forward: { key: m.quoted.key, message: copied } });
-                    success++;
-                    continue;
                 }
             }
 
+            // ContextInfo ආරක්ෂිතව එකතු කිරීම
+            const currentMsgType = Object.keys(rawMessage)[0];
+            if (rawMessage[currentMsgType]) {
+                rawMessage[currentMsgType].contextInfo = {
+                    ...rawMessage[currentMsgType].contextInfo,
+                    externalAdReply
+                };
+            }
+
+            // GenerateMessageFromContent හෝ relayMessage මඟින් වඩාත් ස්ථාවරව පණිවිඩය යැවීම
+            await client.relayMessage(jid, rawMessage, {});
+            success++;
+        }
+
+        // සාර්ථක ප්‍රතිචාරය දක්වන්න (Success Response with Image)
+        await client.sendMessage(m.jid, { react: { text: "✅", key: m.key } });
+
+        const successText = `
+╭━━━〔 FORWARD SUCCESS 〕━━━⬣
+┃ 📤 Sent : ${success} / ${targets.length}
+┃ 🚀 Mode : ${mode.toUpperCase()}
+┃ 👁️ ViewOnce : Bypassed
+┃ 💎 Quality : Original
+╰━━━━━━━━━━━━━━━━━━⬣
+
+Powered by ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎`;
+
+        return client.sendMessage(m.jid, {
+            image: { url: imageUrl },
+            caption: successText
+        }, { quoted: m });
+
+    } catch (e) {
+        console.log(e);
+        await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
+        return m.reply(`❌ Error:\n${e.message}`);
+    }
+});
