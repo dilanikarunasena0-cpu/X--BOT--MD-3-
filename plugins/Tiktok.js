@@ -25,7 +25,7 @@ Sparky(
     name: "tt",
     fromMe: isPublic,
     category: "downloader",
-    desc: "Download TikTok videos in HD/Normal quality",
+    desc: "Download TikTok videos using Zanta API",
   },
   async ({ m, client, args }) => {
     try {
@@ -49,37 +49,34 @@ Sparky(
 
       await m.react("⏳");
 
-      const apiUrl = `https://tikwm.com/api/?url=${encodeURIComponent(
-        tiktokUrl
-      )}`;
-
+      // 🔑 ඔයාගේ API Key එක කෙලින්ම URL එක ඇතුලටම දාලා තියෙන්නේ මෙතනට:
       let response;
       try {
-        response = await axios.get(apiUrl, {
+        response = await axios.get(`https://api.lolhuman.xyz/api/tiktok?apikey=zanta_6xeM2XzKaDSDKLwRhOP85mYv&url=${encodeURIComponent(tiktokUrl)}`, {
           httpsAgent,
           timeout: 15000,
         });
       } catch (err) {
-        throw new Error("TikTok API request failed. Try again.");
+        throw new Error("TikTok API request failed. Check your API key or limit.");
       }
 
-      const data = response?.data?.data;
+      const result = response?.data?.result;
 
-      if (!data) {
-        throw new Error("No video data found.");
+      if (!result) {
+        throw new Error("No video data found. API might be down or key expired.");
       }
 
-      const videoUrl = data.hdplay || data.play;
+      const videoUrl = result.link || result.no_watermark || result.watermark;
 
       if (!videoUrl) {
         throw new Error("No downloadable video URL found.");
       }
 
-      const quality = data.hdplay
-        ? "High Quality (HD) ✅"
+      const quality = result.no_watermark || result.link
+        ? "High Quality (No Watermark) ✅"
         : "Normal Quality ⚠️";
 
-      const title = data.title || "Untitled TikTok";
+      const title = result.title || "Untitled TikTok";
 
       await m.react("⬇️");
 
@@ -100,7 +97,7 @@ Sparky(
 ✨ *Quality:* ${quality}
 📦 *Size:* ${sizeMB} MB
 
-🤖 _Downloaded via ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎_
+🤖 _Downloaded via ❖Ƭʜะ 𝐗-𝐊𝐀registered𝐈𝐘𝐀-𝐌𝐃 💎_
       `.trim();
 
       const payload =
@@ -136,3 +133,4 @@ Sparky(
     }
   }
 );
+
