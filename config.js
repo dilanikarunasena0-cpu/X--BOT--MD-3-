@@ -1,20 +1,16 @@
 const fs = require("fs");
 const dotenv = require("dotenv");
-const {
-	Sequelize
-} = require("sequelize");
+const { Sequelize } = require("sequelize");
 
 function toBool(value) {
 	return value === "true";
 }
 
 if (fs.existsSync("config.env")) {
-	dotenv.config({
-		path: "./config.env"
-	});
+	dotenv.config({ path: "./config.env" });
 }
 
-const DATABASE_URL = process.env.DATABASE_URL || "postgresql://aswin:D6dq0vk1xoQx_OO-Iv4ESQ@rough-doxle-2360.7s5.aws-ap-south-1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full"; // Corrected SQLite format
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://aswin:D6dq0vk1xoQx_OO-Iv4ESQ@rough-doxle-2360.7s5.aws-ap-south-1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full";
 
 if (!DATABASE_URL.startsWith("sqlite://") && !DATABASE_URL.startsWith("postgres://") && !DATABASE_URL.startsWith("postgresql://")) {
 	throw new Error("Invalid DATABASE_URL format. Use 'sqlite://' or 'postgres://'");
@@ -29,10 +25,10 @@ const DATABASE = DATABASE_URL.startsWith("sqlite://") ? new Sequelize(DATABASE_U
 	protocol: "postgres",
 	ssl: true,
 	dialectOptions: {
-		ssl: {
+	ssl: {
 			require: true,
 			rejectUnauthorized: false
-		},
+	},
 	},
 	logging: false,
 });
@@ -63,18 +59,22 @@ module.exports = {
 	RENDER_APP_NAME: process.env.RENDER_APP_NAME || process.env.RENDER_NAME || "",
 	LANGUAGE: process.env.LANGUAGE || "sinhala",
 	LOGS: toBool(process.env.LOGS || "false"),
-	MENU_TYPE: process.env.MENU_TYPE || "image", // Menu style: big, small, image, document, text, call, payment
-	MENU_FONT: process.env.MENU_FONT || "tiny", // randomStyle, strikeThrough, wingdings, vaporwave, typewriter, analucia, tildeStrikeThrough, underline, doubleUnderline, slashThrough, sparrow, heartsBetween, arrowBelow, crossAboveBelow, creepify, bubbles, mirror, squares, roundsquares, flip, tiny, createMap, serif_I, manga, ladybug, runes, serif_B, serif_BI, serif_I, fancy1, fancy2, fancy3, fancy4, fancy5, fancy6, fancy7, fancy8, fancy9, fancy10, fancy11, fancy12, fancy13, fancy14, fancy15, fancy16, fancy17, fancy18, fancy19, fancy20, fancy21, fancy22, fancy23, fancy24, fancy25, fancy26, fancy27, fancy28, fancy29, fancy30, fancy31, fancy32, fancy33
+	MENU_TYPE: process.env.MENU_TYPE || "image",
+	MENU_FONT: process.env.MENU_FONT || "tiny",
 	PORT: process.env.PORT || 8080,
 	PING: process.env.PING || "Latency",
 	PM_BLOCK: toBool(process.env.PM_BLOCK || "false"),
 	READ_MESSAGES: toBool(process.env.READ_MESSAGES || "true"),
 	REJECT_CALL: toBool(process.env.REJECT_CALL || "false"),
 	REJECT_CALL_MSG: process.env.REJECT_CALL_MSG || "_Calls are not allowed. Please don’t call again!._",
-	SESSION_ID: process.env.SESSION_ID || "A-S-W-I-N-S-P-A-R-K-Y:1c9429c9d89aefe9204a623de22ee0da",
+	SESSION_ID: process.env.SESSION_ID || "",
 	START_MSG: toBool(process.env.START_MSG || "true"),
 	STICKER_DATA: process.env.STICKER_DATA || `X BOT MD;ASWIN SPARKY`,
-	SUDO: process.env.SUDO || "94767231838",
+	
+	// Admin numbers - comma වලින් වෙන් කරලා 4ක් දාගන්න පුලුවන්
+	SUDO: (process.env.SUDO || "94767231838").split(',').map(v => v.trim()),
+	OWNER: (process.env.OWNER || process.env.SUDO || "94767231838").split(',').map(v => v.trim()),
+	
 	WORK_TYPE: process.env.WORK_TYPE || "public",
 	SAVE_STATUS: toBool(process.env.SAVE_STATUS || "false"),
 	STATUS_REPLY: toBool(process.env.STATUS_REPLY || "false"),
