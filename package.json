@@ -38,6 +38,7 @@
     "qs": "latest",
     "sequelize": "^6.23.0",
     "simple-git": "^3.27.0",
-    "node-cron": "^4.2.1"
+    "node-cron": "^4.2.1",
+    "wa-sticker-formatter": "^4.4.4"
   }
 }
