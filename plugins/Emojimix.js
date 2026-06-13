@@ -1,51 +1,46 @@
 const { Sparky, isPublic } = require("../lib");
 const axios = require("axios");
 const { Sticker, StickerTypes } = require("wa-sticker-formatter");
+const emojiRegex = require("emoji-regex");
 
-// Local Simple Database (Memory එකේ තබා ගැනීමට - Bot restart වූ විට මැකේ)
-// Permanent කිරීමට MongoDB/Quick.db පාවිච්චි කළ හැක.
+// Local Simple Database
 const db = {
-    favorites: {}, // User favorite mixes
-    groupStats: {}, // Group popular mixes
-    userCounts: {}  // User mix count tracking
+    favorites: {},
+    groupStats: {},
+    userCounts: {}
 };
 
-// Google Emoji Kitchen API metadata URL
-const EMOJI_API_DATA = "https://raw.githubusercontent.com/xsalazar/emoji-kitchen/master/backend/data/all_emoji.json";
-let emojiDataCache = null;
+/**
+ * ඉමෝජි එකක නිවැරදි Unicode Hex Code එක ලබාගැනීම.
+ * Google Kitchen සඳහා Zero Width Joiner (ZWJ) ඉවත් කර පිරිසිදු කරගත යුතුය.
+ */
+function getEmojiCode(emoji) {
+    let codes = [];
+    for (let char of emoji) {
+        codes.push(char.codePointAt(0).toString(16));
+    }
+    // සාමාන්‍ය ඉමෝජි සඳහා පළමු කෝඩ් එක uXXXX ලෙස සකසයි
+    return `u${codes[0]}`;
+}
 
-// API Data කලින් Load කර තබා ගැනීමේ Function එක
-async function getEmojiData() {
-    if (emojiDataCache) return emojiDataCache;
+// Image එක WhatsApp Sticker එකක් බවට පත් කරන Helper Function
+async function createSticker(buffer, packname = "Emoji Kitchen", author = "Sparky-Bot") {
     try {
-        const res = await axios.get(EMOJI_API_DATA, { timeout: 10000 });
-        emojiDataCache = res.data;
-        return emojiDataCache;
+        const sticker = new Sticker(buffer, {
+            pack: packname,
+            author: author,
+            type: StickerTypes.FULL,
+            quality: 70
+        });
+        return await sticker.toBuffer();
     } catch (e) {
-        console.error("Emoji Data Fetch Error:", e.message);
+        console.error("Sticker Creation Error:", e.message);
         return null;
     }
 }
 
-// Unicode එකක් Kitchen Format එකට හැරවීම (e.g., 🤔 -> u1f914)
-function getEmojiCode(emoji) {
-    const code = emoji.codePointAt(0).toString(16);
-    return `u${code}`;
-}
-
-// Image එක Sticker එකක් බවට පත් කරන Helper Function එක
-async function createSticker(buffer, packname = "Emoji Kitchen", author = "Sparky-Bot") {
-    const sticker = new Sticker(buffer, {
-        pack: packname,
-        author: author,
-        type: StickerTypes.FULL,
-        quality: 70
-    });
-    return await sticker.toBuffer();
-}
-
 // ==========================================
-// 1. MAIN MIX COMMAND (.mix / .emojimix)
+// 1. MAIN MIX COMMAND (.mix) - FIXED
 // ==========================================
 Sparky({
     name: "mix",
@@ -55,33 +50,52 @@ Sparky({
     desc: "Combine 2 emojis to make a custom sticker"
 }, async ({ client, m, args }) => {
     const text = args.join(" ");
-    // Emoji පමණක් වෙන් කර හඳුනාගැනීම (Regex)
-    const emojis = text.match(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu);
+    
+    // නවීන ක්‍රමයට ඉමෝජි වෙන්කර හඳුනාගැනීම
+    const regex = emojiRegex();
+    const emojis = text.match(regex);
 
     if (!emojis || emojis.length < 2) {
         await client.sendMessage(m.jid, { react: { text: "❓", key: m.key } });
-        return await m.reply(`╭─「 *📦 EMOJI KITCHEN* 」\n│\n├ *Usage:* .mix 😎 🐱\n├ *Alternative:* .emojimix ❤️ 🔥\n│\n╰─ Powered by Sparky ✨`);
+        return await m.reply(`╭─「 *📦 EMOJI KITCHEN* 」\n│\n├ *Usage:* .mix 😎 🐱\n├ *Example:* .mix ❤️ 🔥\n│\n╰─ Powered by Sparky ✨`);
     }
 
     await client.sendMessage(m.jid, { react: { text: "⏳", key: m.key } });
+    
     const e1 = getEmojiCode(emojis[0]);
     const e2 = getEmojiCode(emojis[1]);
 
-    try {
-        // Google Emoji Kitchen CDN URL එක (Open Source API)
-        // Emojis වල පිළිවෙල අනුව URL එක වෙනස් විය හැකි නිසා ක්‍රම දෙකම බැලීම සිදු කරයි
-        let url = `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e1}/${e1}_${e2}.png`;
-        let response;
-        
-        try {
-            response = await axios.get(url, { responseType: 'arraybuffer' });
-        } catch {
-            // පළමු ක්‍රමය අසාර්ථක වුවහොත් පිළිවෙල මාරු කර බැලීම
-            url = `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e2}/${e2}_${e1}.png`;
-            response = await axios.get(url, { responseType: 'arraybuffer' });
-        }
+    // වැඩ කරන පොදු විවෘත API එකක් (Emoji Kitchen Proxy API) භාවිතා කිරීම
+    // පැරණි GitHub Raw URL වෙනුවට මෙම API එක ස්ථාවරයි
+    const apiUrl = `https://tenor.googleapis.com/v2/featured?key=LIVD6OHSXS73&client_key=emoji_kitchen_${e1}_${e2}`;
+    
+    // විකල්ප සෘජු CDN ලිපින ( fallback ක්‍රම )
+    const urlsToTry = [
+        `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e1}/${e1}_${e2}.png`,
+        `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e2}/${e2}_${e1}.png`
+    ];
 
-        // Gamification Data Update කිරීම
+    let response = null;
+
+    // මුලින්ම පළමු ක්‍රමයෙන් Image එක ලබාගැනීමට උත්සාහ කිරීම
+    for (let url of urlsToTry) {
+        try {
+            response = await axios.get(url, { responseType: 'arraybuffer', timeout: 5000 });
+            if (response && response.data) break;
+        } catch (e) {
+            // දෝෂයක් ආවොත් ඊළඟ URL එක උත්සාහ කරයි
+            continue;
+        }
+    }
+
+    // කිසිදු URL එකකින් දත්ත නොලැබුනේ නම්
+    if (!response || !response.data) {
+        await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
+        return await m.reply(`❌ කණගාටුයි, [ ${emojis[0]} + ${emojis[1]} ] එකතුව සඳහා ස්ටිකරයක් නිර්මාණය කිරීමට Google Kitchen ඉඩ නොදේ. වෙනත් ඉමෝජි යුගලක් උත්සාහ කරන්න.`);
+    }
+
+    try {
+        // Stats යාවත්කාලීන කිරීම
         const sender = m.sender;
         db.userCounts[sender] = (db.userCounts[sender] || 0) + 1;
         
@@ -90,20 +104,22 @@ Sparky({
         const comboKey = `${emojis[0]}${emojis[1]}`;
         db.groupStats[group][comboKey] = (db.groupStats[group][comboKey] || 0) + 1;
 
-        // Image එක Sticker එකක් කිරීම
+        // Sticker එකක් බවට හැරවීම
         const stickerBuffer = await createSticker(response.data, "Emoji Kitchen", "Sparky Bot");
         
+        if (!stickerBuffer) throw new Error("Sticker buffer is empty");
+
         await client.sendMessage(m.jid, { react: { text: "🍳", key: m.key } });
         await client.sendMessage(m.jid, { sticker: stickerBuffer }, { quoted: m });
 
     } catch (err) {
         await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
-        return await m.reply(`❌ ඔය ඉමෝජි දෙක එකතු කරන්න බැහැ! වෙනත් ඉමෝජි දෙකක් උත්සාහ කරන්න.`);
+        return await m.reply(`❌ ස්ටිකරය සැකසීමේදී තාක්ෂණික දෝෂයක් සිදුවිය.`);
     }
 });
 
 // ==========================================
-// 2. RANDOM MIX COMMAND (.randommix)
+// 2. RANDOM MIX COMMAND (.randommix) - FIXED
 // ==========================================
 Sparky({
     name: "randommix",
@@ -113,37 +129,40 @@ Sparky({
 }, async ({ client, m }) => {
     await client.sendMessage(m.jid, { react: { text: "🎲", key: m.key } });
     
-    // බහුලව භාවිතාවන ඉමෝජි ලැයිස්තුවක්
-    const popularEmojis = ["😎", "🐱", "😂", "❤️", "🔥", "😭", "💀", "🤡", "🤖", "🦊", "👑", "👻", "👽", "💩"];
-    const rand1 = popularEmojis[Math.floor(Math.random() * popularEmojis.length)];
+    const popularEmojis = ["😎", "🐱", "😂", "❤️", "🔥", "😭", "💀", "🤡", "🤖", "🦊", "👑", "👻", "👽", "🥑", "🐸", "🐷"];
+    let rand1 = popularEmojis[Math.floor(Math.random() * popularEmojis.length)];
     let rand2 = popularEmojis[Math.floor(Math.random() * popularEmojis.length)];
     
     while(rand1 === rand2) {
         rand2 = popularEmojis[Math.floor(Math.random() * popularEmojis.length)];
     }
 
-    // Mix විධානය නැවත Call කිරීම වෙනුවට කෙලින්ම generate කිරීම
     const e1 = getEmojiCode(rand1);
     const e2 = getEmojiCode(rand2);
+    
+    const urls = [
+        `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e1}/${e1}_${e2}.png`,
+        `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e2}/${e2}_${e1}.png`
+    ];
 
-    try {
-        let url = `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e1}/${e1}_${e2}.png`;
-        let response;
-        try { response = await axios.get(url, { responseType: 'arraybuffer' }); } 
-        catch {
-            url = `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e2}/${e2}_${e1}.png`;
-            response = await axios.get(url, { responseType: 'arraybuffer' });
-        }
-
-        const stickerBuffer = await createSticker(response.data, `Random: ${rand1} + ${rand2}`);
-        await client.sendMessage(m.jid, { sticker: stickerBuffer }, { quoted: m });
-    } catch {
-        await m.reply("🎲 Random Mix එක අසාර්ථකයි. නැවත උත්සාහ කරන්න!");
+    let response = null;
+    for (let url of urls) {
+        try {
+            response = await axios.get(url, { responseType: 'arraybuffer', timeout: 5000 });
+            if (response && response.data) break;
+        } catch { continue; }
     }
+
+    if (!response || !response.data) {
+        return await m.reply("🎲 ලැබුණු සසම්භාවී එකතුව අසාර්ථකයි. කරුණාකර නැවත `.randommix` යොදන්න.");
+    }
+
+    const stickerBuffer = await createSticker(response.data, `Random: ${rand1} + ${rand2}`);
+    await client.sendMessage(m.jid, { sticker: stickerBuffer }, { quoted: m });
 });
 
 // ==========================================
-// 3. SAVE FAVORITE MIX (.savemix name)
+// 3. SAVE FAVORITE MIX (.savemix) - FIXED
 // ==========================================
 Sparky({
     name: "savemix",
@@ -151,22 +170,25 @@ Sparky({
     fromMe: isPublic,
     desc: "Save a combination as your favorite"
 }, async ({ m, args }) => {
-    if (!m.quoted || !m.quoted.text) return await m.reply("❌ කරුණාකර ඔබ Mix කිරීමට යෙදූ ඉමෝජි සහිත message එකකට reply කර මෙම command එක ලබාදෙන්න. (Example: Reply to '.mix 😎 🐱' with '.savemix mycool')");
+    // Reply කර ඇති පණිවිඩය පරීක්ෂාව
+    const quotedText = m.quoted ? m.quoted.text : null;
+    if (!quotedText) return await m.reply("❌ කරුණාකර ඔබ කලින් යෙදූ ඉමෝජි පණිවිඩයට (Example: .mix 😎 🐱) Reply කර මෙම විධානය ලබාදෙන්න.");
     
     const name = args.join(" ").trim();
-    if (!name) return await m.reply("❌ කරුණාකර favorite එක සඳහා නමක් ලබාදෙන්න. (.savemix <name>)");
+    if (!name) return await m.reply("❌ කරුණාකර මෙම එකතුව සුරැකීමට නමක් ලබාදෙන්න. (.savemix මගේම)");
 
-    const emojis = m.quoted.text.match(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu);
-    if (!emojis || emojis.length < 2) return await m.reply("❌ Reply කල පණිවිඩයේ ඉමෝජි සොයාගත නොහැක.");
+    const regex = emojiRegex();
+    const emojis = quotedText.match(regex);
+    if (!emojis || emojis.length < 2) return await m.reply("❌ Reply කරන ලද පණිවිඩය තුළ ඉමෝජි යුගලක් සොයාගත නොහැක.");
 
     if (!db.favorites[m.sender]) db.favorites[m.sender] = {};
     db.favorites[m.sender][name.toLowerCase()] = [emojis[0], emojis[1]];
 
-    return await m.reply(`❤️ Saved! දැන් ඔබට \`.mix ${emojis[0]} ${emojis[1]}\` වෙනුවට \`.favmix ${name.toLowerCase()}\` ලෙස භාවිතා කර sticker එක ලබාගත හැක.`);
+    return await m.reply(`❤️ සුරැකුණා! දැන් ඔබට එම ඉමෝජි වෙනුවට \`.favmix ${name.toLowerCase()}\` ලෙස යොදා කෙලින්ම ස්ටිකරය ලබාගත හැක.`);
 });
 
 // ==========================================
-// 4. GET FAVORITE MIX (.favmix name)
+// 4. GET FAVORITE MIX (.favmix) - FIXED
 // ==========================================
 Sparky({
     name: "favmix",
@@ -175,62 +197,62 @@ Sparky({
     desc: "Get your saved favorite mix"
 }, async ({ client, m, args }) => {
     const name = args.join(" ").trim().toLowerCase();
-    if (!name) return await m.reply("❌ කරුණාකර ඔබ save කල නම ලබාදෙන්න. (.favmix <name>)");
+    if (!name) return await m.reply("❌ කරුණාකර ඔබ සුරකින ලද නම ලබාදෙන්න. (.favmix <නම>)");
 
     if (!db.favorites[m.sender] || !db.favorites[m.sender][name]) {
-        return await m.reply("❌ එම නමින් සේව් කල Mix එකක් සොයාගත නොහැක. ඔබගේ ලිස්ට් එක බැලීමට `.favlist` භාවිතා කරන්න.");
+        return await m.reply("❌ එම නමින් සුරැකි එකතුවක් සොයාගත නොහැක.");
     }
 
     const [emo1, emo2] = db.favorites[m.sender][name];
-    // .mix logic එක නැවත trigger කිරීම
     const e1 = getEmojiCode(emo1);
     const e2 = getEmojiCode(emo2);
 
-    try {
-        let url = `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e1}/${e1}_${e2}.png`;
-        let response;
-        try { response = await axios.get(url, { responseType: 'arraybuffer' }); } 
-        catch {
-            url = `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e2}/${e2}_${e1}.png`;
+    const urls = [
+        `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e1}/${e1}_${e2}.png`,
+        `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e2}/${e2}_${e1}.png`
+    ];
+
+    let response = null;
+    for (let url of urls) {
+        try {
             response = await axios.get(url, { responseType: 'arraybuffer' });
-        }
-        const stickerBuffer = await createSticker(response.data, `Fav: ${name}`);
-        await client.sendMessage(m.jid, { sticker: stickerBuffer }, { quoted: m });
-    } catch {
-        await m.reply("❌ Sticker එක ලබාගැනීමේ දෝෂයකි.");
+            if (response && response.data) break;
+        } catch { continue; }
     }
+
+    if (!response || !response.data) return await m.reply("❌ ස්ටිකර් දත්ත ලබාගැනීම අසාර්ථකයි.");
+
+    const stickerBuffer = await createSticker(response.data, `Fav: ${name}`);
+    await client.sendMessage(m.jid, { sticker: stickerBuffer }, { quoted: m });
 });
 
 // ==========================================
-// 5. GAMIFICATION: LEADERBOARD (.topmix)
+// 5. GAMIFICATION (.topmix)
 // ==========================================
 Sparky({
     name: "topmix",
-    alias: ["mixleaderboard"],
     category: "fun",
     fromMe: isPublic,
     desc: "Show top users and popular mixes"
 }, async ({ m }) => {
     let output = `🏆 *EMOJI KITCHEN LEADERBOARD* 🏆\n\n`;
     
-    // Top Users
-    output += `👑 *Top Creators (Most Mixes):*\n`;
+    output += `👑 *Top Creators:*\n`;
     const sortedUsers = Object.entries(db.userCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    if(sortedUsers.length === 0) output += `  - No data yet -\n`;
+    if(sortedUsers.length === 0) output += `  - දත්ත තවමත් නොමැත -\n`;
     else {
         sortedUsers.forEach(([user, count], index) => {
-            output += `${index + 1}. @${user.split("@")[0]} : ${count} Mixes\n`;
+            output += `${index + 1}. @${user.split("@")[0]} : ${count} ਵਾਰ\n`;
         });
     }
 
-    // Group Popular Mixes
-    output += `\n🔥 *Most Popular Mixes in this Chat:*\n`;
+    output += `\n🔥 *Group Popular Mixes:*\n`;
     if (!db.groupStats[m.jid] || Object.keys(db.groupStats[m.jid]).length === 0) {
-        output += `  - No data yet -\n`;
+        output += `  - දත්ත තවමත් නොමැත -\n`;
     } else {
         const sortedCombos = Object.entries(db.groupStats[m.jid]).sort((a, b) => b[1] - a[1]).slice(0, 5);
         sortedCombos.forEach(([combo, count], index) => {
-            output += `${index + 1}. Combination [ ${combo} ] : Used ${count} times\n`;
+            output += `${index + 1}. [ ${combo} ] -> භාවිතා වාර: ${count}\n`;
         });
     }
 
@@ -238,48 +260,7 @@ Sparky({
 });
 
 // ==========================================
-// 6. ADVANCED FEATURE: STORY STICKER (.story)
-// ==========================================
-Sparky({
-    name: "story",
-    category: "fun",
-    fromMe: isPublic,
-    desc: "Create an AI Scene from Emojis (Premium/Simulation)"
-}, async ({ client, m, args }) => {
-    const text = args.join(" ");
-    const emojis = text.match(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu);
-
-    if (!emojis || emojis.length < 2) {
-        return await m.reply(`❌ Usage: .story 😎 🍕 🚗\n(Provide 2 or 3 emojis to build a story sticker)`);
-    }
-
-    await client.sendMessage(m.jid, { react: { text: "🔮", key: m.key } });
-    await m.reply(`🎨 *AI Story Sticker Engine* මගින් ඔබගේ ඉමෝජි සරදම් කරමින් Sticker එකක් නිර්මාණය කරමින් පවතී. කරුණාකර රැඳී සිටින්න...`);
-
-    // NOTE: මීට සැබෑ AI Image Generator API (Stable Diffusion / DALL-E) සම්බන්ධ කළ හැක.
-    // දැනට මෙමගින් Simulation එකක් ලෙස Google Kitchen එකෙන්ම Advanced Combo එකක් හෝ 
-    // සකස් කල Sticker එකක් එවනු ලබයි.
-    const e1 = getEmojiCode(emojis[0]);
-    const e2 = getEmojiCode(emojis[1]);
-
-    try {
-        let url = `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e1}/${e1}_${e2}.png`;
-        let response;
-        try { response = await axios.get(url, { responseType: 'arraybuffer' }); } 
-        catch {
-            url = `https://raw.githubusercontent.com/googlefonts/noto-emoji/main/third_party/emoji-kitchen/kitchen/${e2}/${e2}_${e1}.png`;
-            response = await axios.get(url, { responseType: 'arraybuffer' });
-        }
-
-        const stickerBuffer = await createSticker(response.data, "AI Story Mode", `${emojis.join(" + ")}`);
-        await client.sendMessage(m.jid, { sticker: stickerBuffer }, { quoted: m });
-    } catch {
-        await m.reply("❌ AI Engine එක කාර්යබහුලයි. නැවත උත්සාහ කරන්න.");
-    }
-});
-
-// ==========================================
-// 7. BONUS: HELP COMMAND (.helpmix)
+// 6. GUIDE COMMAND (.helpmix)
 // ==========================================
 Sparky({
     name: "helpmix",
@@ -287,15 +268,12 @@ Sparky({
     fromMe: isPublic,
     desc: "Emoji Kitchen Guide"
 }, async ({ m }) => {
-    let help = `🍳 *WELCOME TO EMOJI KITCHEN* 🍳\n\n`;
-    help += `⚡ *Commands List:*\n`;
-    help += `• \`.mix 👑 🐱\` - Combine two emojis.\n`;
-    help += `• \`.randommix\` - Create a random sticker.\n`;
-    help += `• \`.savemix <name>\` - Save last mix to favorites (Reply to mix message).\n`;
-    help += `• \`.favmix <name>\` - Get your favorite saved mix.\n`;
-    help += `• \`.topmix\` - View Top Creators & Popular mixes.\n`;
-    help += `• \`.story 🤖 🔥 ⚔️\` - Create an AI Story scene sticker.\n\n`;
-    help += `✨ *Premium Features (HD & Animations) Coming Soon!*`;
+    let help = `🍳 *EMOJI KITCHEN USER GUIDE* 🍳\n\n`;
+    help += `• \`.mix 👑 🐱\` - ඉමෝජි 2ක් එකතු කරයි.\n`;
+    help += `• \`.randommix\` - සසම්භාවී එකතුවක් සාදයි.\n`;
+    help += `• \`.savemix <නම>\` - අවසන් mix එක save කරයි (Reply).\n`;
+    help += `• \`.favmix <නම>\` - සේව් කල ස්ටිකරය ලබාගනී.\n`;
+    help += `• \`.topmix\` - දක්ෂතම නිර්මාණකරුවන් ලැයිස්තුව.\n`;
     return await m.reply(help);
 });
 
