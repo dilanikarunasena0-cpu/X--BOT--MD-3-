@@ -1,147 +1,139 @@
+const { Sparky } = require("../lib");
 const axios = require("axios");
-const { Sticker, StickerTypes } = require("wa-sticker-formatter");
+const sharp = require("sharp");
 
-// Emoji extractor (safe Unicode emojis)
 function extractEmojis(text) {
-    const regex = /[\p{Extended_Pictographic}]/gu;
-    return text.match(regex);
+    if (!text) return [];
+
+    const emojiRegex = /\p{Extended_Pictographic}/gu;
+    const emojis = text.match(emojiRegex) || [];
+
+    return emojis.slice(0, 2);
 }
 
-// Sticker creator
-async function createSticker(buffer) {
-    try {
-        const sticker = new Sticker(buffer, {
-            pack: "Emoji Kitchen",
-            author: "X-KADIYA MD",
-            type: StickerTypes.FULL,
-            quality: 60
-        });
+async function getImageBufferFromUrl(url) {
+    const res = await axios.get(url, {
+        responseType: "arraybuffer",
+        timeout: 15000,
+        headers: {
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "image/png,image/webp,image/*,*/*"
+        },
+        validateStatus: (status) => status >= 200 && status < 400
+    });
 
-        return await sticker.toBuffer();
-    } catch (err) {
-        console.error("Sticker Error:", err);
-        return null;
+    const contentType = String(res.headers["content-type"] || "").toLowerCase();
+
+    if (contentType.includes("application/json")) {
+        const json = JSON.parse(Buffer.from(res.data).toString("utf8"));
+        const imageUrl =
+            json.url ||
+            json.image ||
+            json.result ||
+            json.data?.url ||
+            json.data?.image ||
+            json.data?.result;
+
+        if (!imageUrl) throw new Error("JSON response එකේ image URL එකක් නෑ");
+        return await getImageBufferFromUrl(imageUrl);
     }
+
+    return Buffer.from(res.data);
 }
 
-module.exports = {
-    name: "emix",
-    aliases: ["emojimix", "mix"],
-    category: "fun",
-    desc: "Mix two emojis into a sticker",
+async function makeStickerBuffer(imageBuffer) {
+    return await sharp(imageBuffer)
+        .resize(512, 512, {
+            fit: "contain",
+            background: {
+                r: 0,
+                g: 0,
+                b: 0,
+                alpha: 0
+            }
+        })
+        .webp({
+            quality: 90
+        })
+        .toBuffer();
+}
 
-    async execute(sock, m, args) {
+function buildEmojiMixUrls(emoji1, emoji2) {
+    const e1 = encodeURIComponent(emoji1);
+    const e2 = encodeURIComponent(emoji2);
 
-        const footer = `
-━━━━━━━━━━━━━━━
-❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀 𝐌𝐃 💎
-━━━━━━━━━━━━━━━`;
+    return [
+        `https://emojik.vercel.app/s/${e1}_${e2}?size=512`,
+        `https://emojik.vercel.app/s/${e2}_${e1}?size=512`,
 
+        `https://emoji-kitchen.vercel.app/api/kitchen?emoji1=${e1}&emoji2=${e2}`,
+        `https://emoji-kitchen.vercel.app/api/kitchen?emoji1=${e2}&emoji2=${e1}`,
+
+        `https://emojimix-api.vercel.app/api/${e1}+${e2}`,
+        `https://emojimix-api.vercel.app/api/${e2}+${e1}`,
+
+        `https://tikolu.net/emojimix/${e1}+${e2}`,
+        `https://tikolu.net/emojimix/${e2}+${e1}`
+    ];
+}
+
+async function fetchEmojiMix(emoji1, emoji2) {
+    const urls = buildEmojiMixUrls(emoji1, emoji2);
+    let lastError = null;
+
+    for (const url of urls) {
         try {
-            let emoji1, emoji2;
+            const imageBuffer = await getImageBufferFromUrl(url);
 
-            const input = args.join(" ").trim();
-
-            // format: 😍+🔥
-            if (input.includes("+")) {
-                [emoji1, emoji2] = input.split("+").map(v => v.trim());
-            } 
-            else {
-                const emojis = extractEmojis(input);
-
-                if (emojis && emojis.length >= 2) {
-                    emoji1 = emojis[0];
-                    emoji2 = emojis[1];
-                } else {
-                    emoji1 = args[0];
-                    emoji2 = args[1];
-                }
+            if (imageBuffer && imageBuffer.length > 1000) {
+                return imageBuffer;
             }
-
-            // ❌ FIXED ERROR HANDLING
-            if (!emoji1 || !emoji2) {
-
-                await sock.sendMessage(m.key.remoteJid, {
-                    react: { text: "❓", key: m.key }
-                });
-
-                return await sock.sendMessage(
-                    m.key.remoteJid,
-                    {
-                        text: `❌ *Emoji Mix Usage Error*
-
-ඔබ ඉමෝජි 2ක් ලබා දිය යුතුය.
-
-📌 *Correct Usage:*
-• .emix 😍 🔥
-• .emix 😍+🔥
-• .mix ❤️ 🐱
-
-💡 Example:
-.emix 🤖 💀
-
-${footer}`
-                    },
-                    { quoted: m }
-                );
-            }
-
-            await sock.sendMessage(m.key.remoteJid, {
-                react: { text: "⏳", key: m.key }
-            });
-
-            const url = `https://emojik.vercel.app/s/${encodeURIComponent(
-                emoji1 + emoji2
-            )}?size=512`;
-
-            const response = await axios.get(url, {
-                responseType: "arraybuffer",
-                timeout: 10000,
-                headers: {
-                    "User-Agent": "Mozilla/5.0"
-                }
-            });
-
-            if (!response.data || response.data.length < 100) {
-                throw new Error("API returned invalid image");
-            }
-
-            const stickerBuffer = await createSticker(response.data);
-
-            if (!stickerBuffer) {
-                throw new Error("Sticker conversion failed");
-            }
-
-            await sock.sendMessage(
-                m.key.remoteJid,
-                { sticker: stickerBuffer },
-                { quoted: m }
-            );
-
-            await sock.sendMessage(m.key.remoteJid, {
-                react: { text: "✅", key: m.key }
-            });
-
         } catch (err) {
-            console.error("Emix Error:", err);
-
-            await sock.sendMessage(
-                m.key.remoteJid,
-                {
-                    text: `❌ *Emoji Mix Failed*
-
-• Emoji pair not supported
-• API error or timeout
-• Invalid emoji combination
-
-Try another combo.${footer}`
-                },
-                { quoted: m }
-            );
-
-            await sock.sendMessage(m.key.remoteJid, {
-                react: { text: "❌", key: m.key }
-            });
+            lastError = err;
         }
     }
-};
+
+    throw lastError || new Error("Emoji mix එක හදාගන්න බැරි වුණා");
+}
+
+Sparky({
+    name: "emo",
+    alias: ["emix", "emojimix", "mixemoji"],
+    category: "tools",
+    fromMe: false,
+    desc: "Emoji දෙකක් mix කරලා sticker එකක් හදන්න"
+}, async ({ client, m, args }) => {
+    try {
+        const input = Array.isArray(args) ? args.join(" ") : String(args || "");
+        const text = input || m.quoted?.text || "";
+        const emojis = extractEmojis(text);
+
+        if (emojis.length < 2) {
+            return await m.reply(
+                "Emoji දෙකක් දෙන්න මචං.\n\nඋදා:\n.emo 😪😍"
+            );
+        }
+
+        const [emoji1, emoji2] = emojis;
+
+        await m.react?.("🧪");
+
+        const imageBuffer = await fetchEmojiMix(emoji1, emoji2);
+        const stickerBuffer = await makeStickerBuffer(imageBuffer);
+
+        await client.sendMessage(m.jid, {
+            sticker: stickerBuffer
+        }, { quoted: m });
+
+        await m.react?.("✅");
+    } catch (err) {
+        console.log("Emoji mix error:", err);
+        await m.react?.("❌");
+
+        await m.reply(
+            "❌ මේ emoji දෙක mix කරන්න බැරි වුණා මචං.\n\n" +
+            "වෙන emoji pair එකක් try කරන්න.\n" +
+            "උදා: .emo 😂❤️"
+        );
+    }
+});
