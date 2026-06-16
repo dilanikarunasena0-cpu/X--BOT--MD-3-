@@ -44,7 +44,7 @@ Sparky({
 ┃┃•  owner : ${config.BOT_INFO.split(";")[1].toLowerCase()}
 ┃┃•  mode : ${config.WORK_TYPE.toLowerCase()}
 ┃┃•  prefix : ${m.prefix}
-┃┃•  platform : ${SERVER}
+┃┃•  platform : Whatsapp ⃝
 ┃┃•  date : ${date}
 ┃┃•  time : ${time}
 ┃┃•  uptime : ${await m.uptime()}
