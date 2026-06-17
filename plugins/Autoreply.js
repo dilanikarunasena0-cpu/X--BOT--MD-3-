@@ -4,6 +4,7 @@ const { Sparky } = require("../lib");
 global.customAutoReplies = global.customAutoReplies || {
     'hi': 'හලෝ මචං! කොහොමද?',
     'bot': 'ඔව් මචං, මම ඔන්ලයින් ඉන්නේ! කියන්න මොකක්ද වෙන්න ඕනේ?'
+    'boot status': '*boot status video ටිකක් මම තව ටිකකින් හොයලා දෙන්නම් ම්ම දැන් වැඩක කමක් නැද්ද ❤️‍🩹*',
 };
 
 // 1. 🤖 සාමාන්‍ය TEXT මැසේජ් කියවා රිප්ලයි කරන පද්ධතිය
