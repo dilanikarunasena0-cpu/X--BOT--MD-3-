@@ -2,7 +2,7 @@ const axios = require("axios");
 const { Sparky, isPublic } = require("../lib"); 
 
 // ======================================================
-// 🔍 AI REPLY-BASED CODE DEBUGGER (POST METHOD - NO 414 ERROR)
+// 🔍 AI REPLY-BASED CODE DEBUGGER (401 FIXED VERSION)
 // ======================================================
 Sparky({
     name: "fixcode",
@@ -12,13 +12,11 @@ Sparky({
     desc: "Reply to any buggy code with .fixcode to analyze and fix it."
 }, async ({ m, text }) => {
     try {
-        // 1. පරිශීලකයා වෙනත් මැසේජ් එකකට Reply (Quote) කරලා තියෙනවද බලනවා
         let codeToFix = "";
 
         if (m.quoted && (m.quoted.text || m.quoted.body)) {
             codeToFix = m.quoted.text || m.quoted.body;
         } else {
-            // Reply කරලා නැත්නම්, Command එකත් එක්ක කෙලින්ම දීලා තියෙන text එක ගන්නවා
             codeToFix = (text || m.text || m.body || "").trim();
             if (codeToFix.startsWith(".")) {
                 codeToFix = codeToFix.replace(/^\.\w+\s+/, "");
@@ -37,14 +35,16 @@ Sparky({
         const apiKey = "wxa_f_21e17ba43b"; 
         const fullPrompt = `Act as an expert code debugger. Fix errors in this code, explain shortly in English, and provide the fixed code in markdown block:\n\n${codeToFix.trim()}`;
 
-        // 🚀 FIXED: URL එක දිග වීම වැලැක්වීමට GET වෙනුවට POST ක්‍රමය සහ JSON Body එක පාවිච්චි කිරීම
-        const apiUrl = "https://apis.xwolf.space/api/ai/chatbot/gpt4o";
+        // 🛠️ FIXED: URL එක ඇතුලටත්, POST Body එක ඇතුලටත් ක්‍රම දෙකටම Key එක pass කරනවා 401 error එක bypass කරන්න
+        const apiUrl = `https://apis.xwolf.space/api/ai/chatbot/gpt4o?key=${apiKey}`;
 
         const response = await axios.post(apiUrl, {
             q: fullPrompt,
             key: apiKey
         }, { 
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+                "Content-Type": "application/json"
+            },
             timeout: 60000 
         });
 
@@ -59,7 +59,7 @@ Sparky({
         }
 
         if (!aiResult || aiResult.trim() === "") {
-            return m.reply("❌ කේතය පරීක්ෂා කිරීමට නොහැකි වුණා. API Response එක හිස්.");
+            return m.reply("❌ கේතය පරීක්ෂා කිරීමට නොහැකි වුණා. API Response එක හිස්.");
         }
 
         const finalResponse = `💻 *AI CODE ASSISTANT & DEBUGGER*\n\n` +
@@ -70,6 +70,12 @@ Sparky({
 
     } catch (err) {
         console.error("❌ Code Fixer Error:", err);
+        
+        // 401 Error එකක් ආවොත් කෙලින්ම කියනවා Key එක මාරු කරන්න කියලා
+        if (err.response?.status === 401) {
+            return m.reply("❌ *API Key Error (401 Unauthorized):* ඔයාගේ XWolf API Key එක Expired වෙලා හෝ Block වෙලා මචං. කරුණාකර අලුත් API Key එකක් දාලා බලන්න.");
+        }
+
         return m.reply(
             "❌ Error occurred while debugging:\n" +
             (err.response?.data?.message || err.message || "Unknown error")
