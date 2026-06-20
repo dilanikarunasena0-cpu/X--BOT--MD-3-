@@ -4,8 +4,8 @@ const axios = require("axios");
 // 🎨 AI IMAGE GENERATOR (.imagine [විස්තරය])
 // ======================================================
 Sparky({
-    name: "img",
-    alias: ["genimg", "draw", "aiimg"],
+    name: "imagine",
+    alias: ["genimg", "draw"],
     category: "tools",
     fromMe: isPublic, 
     desc: "Generate AI Images using XWolf API"
@@ -20,57 +20,40 @@ Sparky({
         const promptText = inputBody.trim();
 
         if (!promptText) {
-            return m.reply("❌ කරුණාකර සාදාගත යුතු රූපයේ විස්තරයක් (Prompt) ලබා දෙන්න!\n\n💡 Example:\n.imagine a wolf in a forest | style:oil-painting | ratio:1:1");
+            return m.reply("❌ කරුණාකර සාදාගත යුතු රූපයේ විස්තරයක් ලබා දෙන්න!\n\n💡 Example: .imagine a beautiful anime girl");
         }
 
-        // Default Settings (පරිශීලකයා වෙනස් කර නැත්නම් පාවිච්චි වන දේවල්)
-        let finalPrompt = promptText;
-        let style = "oil-painting"; // default style
-        let ratio = "1:1";          // default ratio
-
-        // Prompt එක ඇතුලේ | ලකුණෙන් style සහ ratio වෙන් කරලා තියෙනවද බලනවා
-        if (promptText.includes("|")) {
-            const parts = promptText.split("|");
-            finalPrompt = parts[0].trim();
-
-            parts.forEach(part => {
-                const kv = part.split(":");
-                if (kv.length === 2) {
-                    const key = kv[0].trim().toLowerCase();
-                    const value = kv[1].trim();
-                    if (key === "style") style = value;
-                    if (key === "ratio") ratio = encodeURIComponent(value); // 1:1 -> 1%3A1 කිරීමට
-                }
-            });
-        }
-
-        // Bot වැඩ කරන බව පෙන්වීමට මැසේජ් එකක්
-        await m.reply("🎨 *ඔබේ රූපය සකසමින් පවතී... කරුණාකර මොහොතක් රැඳී සිටින්න.*");
+        // පොඩ්ඩක් ඉන්න කියලා පණිවිඩයක් දානවා
+        await m.reply("🎨 *ඔබේ රූපය සකසමින් පවතී...*");
 
         const apiKey = "wxa_f_21e17ba43b";
         
-        // XWolf Style-Transfer API URL එක
-        const apiUrl = `https://apis.xwolf.space/api/ai/tools/style-transfer?prompt=${encodeURIComponent(finalPrompt)}&style=${style}&ratio=${ratio}&key=${apiKey}`;
+        // සරලවම default style එකෙන් සහ ratio එකෙන් රූපය සෑදීමට URL එක සකස් කිරීම
+        const apiUrl = `https://apis.xwolf.space/api/ai/tools/style-transfer?prompt=${encodeURIComponent(promptText)}&style=oil-painting&ratio=1%3A1&key=${apiKey}`;
 
         const response = await axios.get(apiUrl);
 
-        // API එකෙන් එන response එක check කිරීම
         if (response.data && response.data.status === true && response.data.result) {
             const imageUrl = response.data.result;
+            const captionText = `✨ *AI Generated Image*\n\n📝 *Prompt:* ${promptText}`;
 
-            // Bot Framework එකේ image එකක් යවන ආකාරය (Sparky framework එකේ config අනුව වෙනස් විය හැක)
-            // සාමාන්‍ยයෙන් sendMessage එකෙන් image url එක direct යැවිය හැක
+            // 🛠️ ක්‍රමය 1: Sparky වල බහුලවම පාවිච්චි වන සරලම ක්‍රමය (Caption එකත් එක්කම Image එක යැවීම)
+            if (typeof m.sendFromUrl === "function") {
+                return await m.sendFromUrl(imageUrl, { caption: captionText, quoted: m });
+            } 
+            
+            // 🛠️ ක්‍රමය 2: (Fallback) එකක් විදිහට සාමාන්‍ය sendMessage ක්‍රමය
             return await m.client.sendMessage(m.chat, { 
                 image: { url: imageUrl }, 
-                caption: `✨ *AI Generated Image*\n\n📝 *Prompt:* ${finalPrompt}\n🎨 *Style:* ${style}\n📐 *Ratio:* ${ratio.replace("%3A", ":")}`
+                caption: captionText 
             }, { quoted: m });
 
         } else {
-            return m.reply("❌ ඡායාරූපය නිර්මාණය කිරීමට නොහැකි වුණා. (Invalid API Response)");
+            return m.reply("❌ ඡායාරූපය නිර්මාණය කිරීමට නොහැකි වුණා. (API Error)");
         }
 
     } catch (err) {
         console.error("❌ Image Gen Error:", err);
-        return m.reply("❌ Error එකක් සිදු වුණා: " + (err.response?.data?.message || err.message));
+        return m.reply("❌ Error එකක් සිදු වුණා: " + err.message);
     }
 });
