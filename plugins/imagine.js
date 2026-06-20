@@ -2,7 +2,7 @@ const axios = require("axios");
 const { Sparky, isPublic } = require("../lib"); 
 
 // ======================================================
-// 🎨 AI IMAGE GENERATOR (MULTI STYLE) - 100% FIXED VERSION
+// 🎨 AI IMAGE GENERATOR (MULTI STYLE) - CRASH FREE VERSION
 // ======================================================
 Sparky({
     name: "imagine",
@@ -76,18 +76,19 @@ Sparky({
             `📝 *Prompt:* ${promptText}`;
 
         // ======================================================
-        // 🛠️ FIXED IMAGE SENDING LOGIC FOR X-BOT-MD
+        // 🛠️ SAFE IMAGE SENDING LOGIC (NO CLIENT NEEDED)
         // ======================================================
         try {
-            // ක්‍රමය 1: X-BOT-MD වල බහුලවම වැඩ කරන සරල ක්‍රමය
+            // ක්‍රමය 1: X-BOT-MD standard media handler
             return await m.reply({ url: imageUrl }, "image", { caption: caption });
-        } catch (e) {
-            // ක්‍රමය 2: (Fallback) එකක් විදිහට standard Baileys sendMessage ක්‍රමය
-            const jid = m.chat || m.from;
-            return await m.client.sendMessage(jid, { 
-                image: { url: imageUrl }, 
-                caption: caption 
-            }, { quoted: m });
+        } catch (e1) {
+            try {
+                // ක්‍රමය 2: විකල්ප Sparky media style
+                return await m.reply(imageUrl, { type: "image", caption: caption });
+            } catch (e2) {
+                // ක්‍රමය 3: සරලවම text එකක් විදිහට link එක සහ caption එක යැවීම (Anticrash fallback)
+                return await m.reply(`${caption}\n\n🔗 Image Link: ${imageUrl}`);
+            }
         }
 
     } catch (err) {
