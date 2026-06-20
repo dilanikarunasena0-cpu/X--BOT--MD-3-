@@ -1,6 +1,6 @@
 const { Sparky, isPublic } = require("../lib");
 
-// --- 1. MAIN HELP / MENU COMMAND ---
+// --- 1. HELP / MENU COMMAND ---
 Sparky({
     name: "help",
     alias: ["menu"],
@@ -9,31 +9,20 @@ Sparky({
     desc: "Show bot help menu"
 }, async ({ m }) => {
     try {
-        const helpText = `╭━━━〔 ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎 〕━━━⬣
+        const helpText = `╭━━━〔 ❖ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎 〕━━━⬣
 ┃
 ┃ 👋 Welcome to X-KADIYA-MD Bot
 ┃
 ┃ 🚀 Our Services
 ┃ ─────────────
-┃ 🌐 Image To URL
-┃ 📥 Media Downloader
-┃ 🎵 Song Search
-┃ 🤖 AI Chat Assistant
-┃ 🛠️ Useful Tools
-┃
-┃ 📌 Available Commands
-┃ 💡 (මෙම පණිවිඩයට අදාළ අංකය රිප්ලයි කරන්න)
-┃ ─────────────
-┃ [1] ➜ Image to URL (.tourl)
+┃ [1] ➜ Convert Image to URL (.tourl)
 ┃ [2] ➜ Chat with AI (.ai)
-┃ [3] ➜ Search songs (.song)
-┃ [4] ➜ Check Speed (.ping)
-┃ [5] ➜ Contact owner (.owner)
+┃ [3] ➜ Search Songs (.song)
+┃ [4] ➜ Check Bot Speed (.ping)
+┃ [5] ➜ Contact Owner (.owner)
 ┃
-┃ 💎 Why Choose Us?
-┃ ─────────────
-┃ ✅ Fast Response | Easy To Use
-┃
+┃ 💡 මෙම පණිවිඩයට අදාළ අංකය (1-5) 
+┃    Reply කරන්න. කෙලින්ම ක්‍රියාත්මක වේ!
 ╰━━━━━━━━━━━━━━⬣`;
 
         await m.reply(helpText);
@@ -46,7 +35,7 @@ Sparky({
 
 // --- 2. PING COMMAND ---
 Sparky({
-    name: "speed",
+    name: "ping",
     category: "main",
     fromMe: isPublic,
     desc: "Check bot speed"
@@ -55,48 +44,52 @@ Sparky({
         const start = new Date().getTime();
         const end = new Date().getTime();
         const responseTime = (end - start);
-
-        const pingText = `⚡ *speed!* \n\nResponse Speed: *${responseTime}ms*\n\n💡 Reply *0* to go back to Main Menu.`;
-        await m.reply(pingText);
-
+        await m.reply(`⚡ *Pong!* \n\nResponse Speed: *${responseTime}ms*`);
     } catch (err) {
-        console.error(err);
         await m.reply("❌ Error: " + err.message);
     }
 });
 
 
-// --- 3. NUMBER BUTTONS LISTENER (අංක වැඩ කරවන කොටස) ---
-// මෙමඟින් යූසර් අංකයක් රිප්ලයි කළ විට අදාළ කමාන්ඩ් එක බොටා ලවාම ට්‍රිගර් කරවයි.
+// --- 3. CORE REPLY LISTENER (අංකයට අදාළ FUNCTION එක ක්‍රියාත්මක කිරීම) ---
 Sparky({
     on: "text",
     fromMe: isPublic
-}, async ({ m, client }) => {
+}, async (context) => { // context එක ඇතුළේ m, client, text ඔක්කොම තියෙනවා
+    const { m, client } = context;
     try {
-        // මැසේජ් එකක් රිප්ලයි එකක්ද සහ ඒකේ අංකයක් තියෙද කියා බලයි
-        if (!m.quoted || !m.quoted.text) return;
+        // රිප්ලයි එකක්ද සහ ඒකේ අංකයක් තියෙද බලන්න
+        if (!m.quoted || !m.text) return;
         
-        // රිප්ලයි කරපු මැසේජ් එක අපේ බෝට්ගේ මෙනු එකක්දැයි තහවුරු කරගැනීම
-        if (!m.quoted.text.includes("❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃")) return;
+        // රිප්ලයි කරපු මැසේජ් එක අපේ මෙනු එකක්දැයි තහවුරු කරගන්න
+        if (!m.quoted.text.includes("𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃")) return;
 
-        const input = m.text.trim();
+        const choice = m.text.trim();
 
-        // යූසර් රිප්ලයි කරපු අංකය අනුව අදාළ කමාන්ඩ් එක ක්‍රියාත්මක කිරීම
-        if (input === "1") {
-            await m.reply(".tourl");
-        } else if (input === "2") {
-            await m.reply(".ai");
-        } else if (input === "3") {
-            await m.reply(".song");
-        } else if (input === "4") {
-            await m.reply(".ping");
-        } else if (input === "5") {
-            await m.reply(".owner");
-        } else if (input === "0") {
-            await m.reply(".menu");
+        // 💡 මෙතනදී බොටා මැසේජ් එකක් යවන්නේ නැහැ. 
+        // යූසර් වෙනුවට අදාළ Command එකේ නම වෙනස් කරලා Core එකටම බාර දෙනවා (Execute කරවනවා)
+        if (choice === "1") {
+            m.text = ".tourl";
+            await client.emit("messages.upsert", { messages: [m.messages || m] });
+            
+        } else if (choice === "2") {
+            m.text = ".ai";
+            await client.emit("messages.upsert", { messages: [m.messages || m] });
+            
+        } else if (choice === "3") {
+            m.text = ".song";
+            await client.emit("messages.upsert", { messages: [m.messages || m] });
+            
+        } else if (choice === "4") {
+            m.text = ".ping";
+            await client.emit("messages.upsert", { messages: [m.messages || m] });
+            
+        } else if (choice === "5") {
+            m.text = ".owner";
+            await client.emit("messages.upsert", { messages: [m.messages || m] });
         }
 
     } catch (err) {
-        console.error("Listener Error: ", err);
+        console.error("Internal Router Error: ", err);
     }
 });
