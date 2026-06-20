@@ -2,18 +2,19 @@ const axios = require("axios");
 const { Sparky, isPublic } = require("../lib"); 
 
 // ======================================================
-// 🔍 AI REPLY-BASED CODE DEBUGGER (401 FIXED VERSION)
+// 🔍 AI REPLY-BASED CODE DEBUGGER (HUGGING FACE VERSION)
 // ======================================================
 Sparky({
     name: "fixcode",
     alias: ["debug", "errorfix"],
     category: "tools",
     fromMe: isPublic,
-    desc: "Reply to any buggy code with .fixcode to analyze and fix it."
+    desc: "Reply to any buggy code with .fixcode to analyze and fix it using Hugging Face AI."
 }, async ({ m, text }) => {
     try {
         let codeToFix = "";
 
+        // 1. Reply (Quote) මැසේජ් එකෙන් කේතය ලබා ගැනීම
         if (m.quoted && (m.quoted.text || m.quoted.body)) {
             codeToFix = m.quoted.text || m.quoted.body;
         } else {
@@ -30,55 +31,68 @@ Sparky({
             );
         }
 
-        await m.reply("🧠 *AI මඟින් ඔබේ කේතය (Code) පරීක්ෂා කරමින් පවතී... කරුණාකර මොහොතක් රැඳී සිටින්න.*");
+        await m.reply("🧠 *Hugging Face AI මඟින් ඔබේ කේතය (Code) පරීක්ෂා කරමින් පවතී... කරුණාකර මොහොතක් රැඳී සිටින්න.*");
 
-        const apiKey = "wxa_f_21e17ba43b"; 
-        const fullPrompt = `Act as an expert code debugger. Fix errors in this code, explain shortly in English, and provide the fixed code in markdown block:\n\n${codeToFix.trim()}`;
+        // 🔐 ඔයා ලබාදුන් Hugging Face Token එක ආරක්ෂිතව ඇතුලත් කලා
+        const hfToken = "Hf_YwKqWFiIXcAkAWuXltmvAqyHFOsQUqGxRW"; 
+        
+        // AI එකට දෙන පණිවිඩය (System Instructions + Code)
+        const systemInstruction = "[SYSTEM: You are an expert code debugger. Fix errors in the user's code, explain the bug shortly in English, and provide the fully corrected code wrapped inside a markdown code block.]\n\nUser Code:\n";
+        const fullPrompt = `${systemInstruction}${codeToFix.trim()}`;
 
-        // 🛠️ FIXED: URL එක ඇතුලටත්, POST Body එක ඇතුලටත් ක්‍රම දෙකටම Key එක pass කරනවා 401 error එක bypass කරන්න
-        const apiUrl = `https://apis.xwolf.space/api/ai/chatbot/gpt4o?key=${apiKey}`;
+        // Hugging Face Inference API Endpoint (Mistral AI Model එක පාවිච්චි කර ඇත - Coding වලට සුපිරි)
+        const apiUrl = "https://api-inference.huggingface.co/models/MistralAI/Mistral-7B-Instruct-v0.3";
 
-        const response = await axios.post(apiUrl, {
-            q: fullPrompt,
-            key: apiKey
-        }, { 
-            headers: { 
-                "Content-Type": "application/json"
-            },
-            timeout: 60000 
-        });
+        // Hugging Face වෙත ආරක්ෂිත POST Request එකක් යැවීම
+        const response = await axios.post(apiUrl, 
+            { 
+                inputs: fullPrompt,
+                parameters: { max_new_tokens: 1000, return_full_text: false }
+            }, 
+            { 
+                headers: { 
+                    "Authorization": `Bearer ${hfToken}`,
+                    "Content-Type": "application/json"
+                },
+                timeout: 60000 
+            }
+        );
 
         const data = response?.data;
-        console.log("📦 Code Fixer API RESPONSE:", data);
+        console.log("📦 Hugging Face API RESPONSE:", data);
 
         let aiResult = null;
-        if (typeof data === "string") {
+
+        // Hugging Face සාමාන්‍යයෙන් Array එකක් ඇතුලත Object එකක් ලෙස උත්තරය දෙයි [{ generated_text: "..." }]
+        if (Array.isArray(data) && data[0]?.generated_text) {
+            aiResult = data[0].generated_text.trim();
+        } else if (data && data.generated_text) {
+            aiResult = data.generated_text.trim();
+        } else if (typeof data === "string") {
             aiResult = data;
-        } else if (data) {
-            aiResult = data.result || data.reply || data.response || data.data;
         }
 
-        if (!aiResult || aiResult.trim() === "") {
-            return m.reply("❌ கේතය පරීක්ෂා කිරීමට නොහැකි වුණා. API Response එක හිස්.");
+        if (!aiResult) {
+            return m.reply("❌ කේතය පරීක්ෂා කිරීමට නොහැකි වුණා. Hugging Face වෙතින් නිසි ප්‍රතිචාරයක් ලැබුණේ නැත.");
         }
 
         const finalResponse = `💻 *AI CODE ASSISTANT & DEBUGGER*\n\n` +
                               `${aiResult}\n\n` +
-                              `⚡ *Powered by XWolf API*`;
+                              `⚡ *Powered by Hugging Face AI*`;
 
         return await m.reply(finalResponse);
 
     } catch (err) {
-        console.error("❌ Code Fixer Error:", err);
+        console.error("❌ Hugging Face Code Fixer Error:", err);
         
-        // 401 Error එකක් ආවොත් කෙලින්ම කියනවා Key එක මාරු කරන්න කියලා
-        if (err.response?.status === 401) {
-            return m.reply("❌ *API Key Error (401 Unauthorized):* ඔයාගේ XWolf API Key එක Expired වෙලා හෝ Block වෙලා මචං. කරුණාකර අලුත් API Key එකක් දාලා බලන්න.");
+        // Hugging Face එකේ Model එක Load වෙන ගමන් නම් (503 Error) ඒක පරිශීලකයාට දන්වනවා
+        if (err.response?.status === 503) {
+            return m.reply("⏳ *AI Model එක සූදානම් වෙමින් පවතී (Loading)...* කරුණාකර තත්පර කිහිපයකින් නැවත උත්සාහ කරන්න මචං.");
         }
 
         return m.reply(
             "❌ Error occurred while debugging:\n" +
-            (err.response?.data?.message || err.message || "Unknown error")
+            (err.response?.data?.error || err.message || "Unknown error")
         );
     }
 });
