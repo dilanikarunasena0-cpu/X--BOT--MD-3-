@@ -133,9 +133,9 @@ Sparky({
 > ${botName} WhatsApp Bot
 
 *Reply with:*
-1️⃣ Ping
-2️⃣ Menu
-3️⃣ *Kadiya Md Bot Connected*
+1️⃣ .menu
+2️⃣ .sun
+3️⃣ .ping
 `;
 
         await client.sendMessage(m.jid, {
