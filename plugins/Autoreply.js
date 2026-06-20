@@ -2,9 +2,8 @@ const { Sparky, isPublic } = require("../lib");
 const fs = require("fs");
 const path = require("path");
 
-// 📂 Database folder & file configuration
-const DB_DIR = path.join(__dirname, "../database");
-const DATA_FILE = path.join(DB_DIR, "autoreplies.json");
+// 📂 ලෙඩ දෙන database ෆෝල්ඩර් අයින් කරලා කෙලින්ම මේ ප්ලගින් එක තියෙන තැනම ෆයිල් එක හදමු
+const DATA_FILE = path.join(__dirname, "autoreplies.json");
 
 // 🧠 Memory cache
 let autoReplies = [];
@@ -14,15 +13,15 @@ let autoReplies = [];
 // -------------------------
 function loadData() {
     try {
-        if (!fs.existsSync(DB_DIR)) {
-            fs.mkdirSync(DB_DIR, { recursive: true });
-        }
         if (!fs.existsSync(DATA_FILE)) {
-            fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2));
+            fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2), "utf-8");
+            console.log("📝 [AutoReply] New JSON file created at:", DATA_FILE);
         }
-        autoReplies = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+        const fileContent = fs.readFileSync(DATA_FILE, "utf-8");
+        autoReplies = JSON.parse(fileContent);
+        console.log(`🧠 [AutoReply] Loaded ${autoReplies.length} rules successfully.`);
     } catch (err) {
-        console.error("❌ Load error:", err);
+        console.error("❌ [AutoReply] Load error:", err);
         autoReplies = [];
     }
 }
@@ -32,12 +31,13 @@ function loadData() {
 // -------------------------
 function saveData() {
     try {
-        if (!fs.existsSync(DB_DIR)) {
-            fs.mkdirSync(DB_DIR, { recursive: true });
-        }
-        fs.writeFileSync(DATA_FILE, JSON.stringify(autoReplies, null, 2));
+        const fd = fs.openSync(DATA_FILE, "w");
+        fs.writeFileSync(fd, JSON.stringify(autoReplies, null, 2), "utf-8");
+        fs.fdatasyncSync(fd); // Storage එකටම ලියන්න බල කරනවා (Force write)
+        fs.closeSync(fd);
+        console.log("💾 [AutoReply] Data successfully flushed to disk.");
     } catch (err) {
-        console.error("❌ Save error:", err);
+        console.error("❌ [AutoReply] Save error:", err);
     }
 }
 
@@ -52,8 +52,8 @@ Sparky({
     name: "addreply",
     alias: ["ar"],
     category: "tools",
-    fromMe: false, // 🔒 බොට්ගේ අයිතිකරුට (Owner) පමණක් වැඩ කිරීමට false කරන ලදී
-    desc: "Add auto reply keyword (Owner Only)"
+    fromMe: false, // Owner Only
+    desc: "Add auto reply keyword"
 }, async ({ m, text }) => {
     try {
         let inputBody = text || m.text || m.body || "";
@@ -76,6 +76,8 @@ Sparky({
             return m.reply("❌ Keyword or reply missing!");
         }
 
+        // duplicate check
+        loadData(); // සේව් කරන්න කලින් ෆයිල් එක ආයේ කියවමු
         const exists = autoReplies.find(r => r.keyword === keyword);
         if (exists) {
             return m.reply("⚠️ This keyword already exists!");
@@ -107,8 +109,8 @@ Sparky({
     name: "delreply",
     alias: ["dr"],
     category: "tools",
-    fromMe: false, // 🔒 බොට්ගේ අයිතිකරුට (Owner) පමණක් වැඩ කිරීමට false කරන ලදී
-    desc: "Delete auto reply keyword (Owner Only)"
+    fromMe: false,
+    desc: "Delete auto reply keyword"
 }, async ({ m, text }) => {
     try {
         let inputKey = text || m.text || m.body || "";
@@ -122,6 +124,7 @@ Sparky({
             return m.reply("❌ Usage:\n.delreply keyword");
         }
 
+        loadData();
         const before = autoReplies.length;
         autoReplies = autoReplies.filter(r => r.keyword !== key);
 
@@ -146,8 +149,8 @@ Sparky({
     name: "listreply",
     alias: ["lr"],
     category: "tools",
-    fromMe: false, // 🔒 බොට්ගේ අයිතිකරුට (Owner) පමණක් වැඩ කිරීමට false කරන ලදී
-    desc: "Show all auto replies (Owner Only)"
+    fromMe: false,
+    desc: "Show all auto replies"
 }, async ({ m }) => {
     try {
         loadData();
@@ -171,17 +174,20 @@ Sparky({
 
 
 // ======================================================
-// 🤖 AUTO REPLY LISTENER (ANYONE CAN TRIGGER)
+// 🤖 AUTO REPLY LISTENER
 // ======================================================
 Sparky({
     on: "text",
-    fromMe: isPublic // 🔓 ඕනෑම කෙනෙක් මැසේජ් එකක් දැම්මම ඔටෝ රිප්ලයි එක වැඩ කරයි
+    fromMe: isPublic
 }, async ({ m }) => {
     try {
         const rawText = m.body || m.text || "";
         const msg = rawText.toLowerCase().trim();
         
         if (!msg || msg.startsWith(".")) return;
+
+        // මැසේජ් එකක් ආවම ලිස්ට් එක අප්ඩේට් එකක්ද බලන්න ෆයිල් එක කියවනවා
+        loadData();
 
         // exact match first
         let rule = autoReplies.find(r => msg === r.keyword);
