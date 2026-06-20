@@ -5,22 +5,6 @@ const getJid = (m) => {
     return m?.chat || m?.from || m?.key?.remoteJid || null;
 };
 
-// 🚀 BUTTON BUILDER (ANY BUTTON SUPPORT)
-const buildButtonsMessage = (text, footer, buttons = []) => {
-    return {
-        text,
-        footer,
-        buttons: buttons.map(btn => ({
-            buttonId: btn.id,
-            buttonText: { displayText: btn.text },
-            type: 1
-        })),
-        headerType: 1
-    };
-};
-
-
-
 // ─────────────────────────────
 // 📜 HELP / MENU COMMAND
 // ─────────────────────────────
@@ -33,8 +17,8 @@ Sparky({
 }, async ({ m, client }) => {
     try {
 
-        const targetChat = getJid(m);
-        if (!targetChat) return m.reply("❌ Invalid chat ID");
+        const jid = getJid(m);
+        if (!jid) return m.reply("❌ Invalid chat ID");
 
         const helpText = `╭━━━〔 ❖ X-KADIYA-MD 💎 〕━━━⬣
 ┃ 👋 Welcome Bot Menu
@@ -45,24 +29,21 @@ Sparky({
 ┃ 🎵 Song Download
 ┃ ⚡ Speed Test
 ┃ ☀️ Sun Tool
-┃
 ╰━━━━━━━━━━━━━━⬣`;
 
-        // 🔘 ANY BUTTONS (EDIT HERE ONLY)
         const buttons = [
-            { id: '.menu', text: '📜 Menu' },
-            { id: '.sun', text: '☀️ Sun' },
-            { id: '.song', text: '🎵 Song' },
-            { id: '.w', text: '⚡ W' }
+            { buttonId: ".menu", buttonText: { displayText: "📜 Menu" }, type: 1 },
+            { buttonId: ".sun", buttonText: { displayText: "☀️ Sun" }, type: 1 },
+            { buttonId: ".song", buttonText: { displayText: "🎵 Song" }, type: 1 },
+            { buttonId: ".ping", buttonText: { displayText: "⚡ Ping" }, type: 1 }
         ];
 
-        const buttonMessage = buildButtonsMessage(
-            helpText,
-            "💎 X-KADIYA-MD 💎",
-            buttons
-        );
-
-        await client.sendMessage(targetChat, buttonMessage, { quoted: m });
+        await client.sendMessage(jid, {
+            text: helpText,
+            footer: "💎 X-KADIYA-MD 💎",
+            buttons: buttons,
+            headerType: 1
+        }, { quoted: m });
 
     } catch (err) {
         console.error(err);
@@ -71,41 +52,38 @@ Sparky({
 });
 
 
-
 // ─────────────────────────────
 // ⚡ PING COMMAND
 // ─────────────────────────────
 Sparky({
-    name: "ping",
+    name: "speed",
     category: "main",
     fromMe: isPublic,
     desc: "Check bot speed"
 }, async ({ m, client }) => {
     try {
 
-        const targetChat = getJid(m);
-        if (!targetChat) return m.reply("❌ Invalid chat ID");
+        const jid = getJid(m);
+        if (!jid) return m.reply("❌ Invalid chat ID");
 
         const start = Date.now();
         await m.reply("Testing Speed... ⏳");
-        const responseTime = Date.now() - start;
+        const ms = Date.now() - start;
 
-        const pingText = `⚡ *Pong!*\n\nResponse Speed: *${responseTime}ms*`;
+        const pingText = `⚡ *Pong!*\n\nResponse Speed: *${ms}ms*`;
 
-        // 🔘 PING BUTTONS
         const buttons = [
-            { id: '.menu', text: '📜 Main Menu' },
-            { id: '.song', text: '🎵 Song' },
-            { id: '.w', text: '⚡ W' }
+            { buttonId: ".menu", buttonText: { displayText: "📜 Main Menu" }, type: 1 },
+            { buttonId: ".song", buttonText: { displayText: "🎵 Song" }, type: 1 },
+            { buttonId: ".ping", buttonText: { displayText: "⚡ Ping Again" }, type: 1 }
         ];
 
-        const buttonMessage = buildButtonsMessage(
-            pingText,
-            "💎 X-KADIYA-MD 💎",
-            buttons
-        );
-
-        await client.sendMessage(targetChat, buttonMessage, { quoted: m });
+        await client.sendMessage(jid, {
+            text: pingText,
+            footer: "💎 X-KADIYA-MD 💎",
+            buttons: buttons,
+            headerType: 1
+        }, { quoted: m });
 
     } catch (err) {
         console.error(err);
