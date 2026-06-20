@@ -1,10 +1,10 @@
 const axios = require("axios");
 
 // ======================================================
-// 🎨 AI IMAGE GENERATOR (MULTI STYLE)
+// 🎨 AI IMAGE GENERATOR (MULTI STYLE) - FIXED VERSION
 // ======================================================
 Sparky({
-    name: "img",
+    name: "imagine",
     alias: ["genimg", "draw"],
     category: "tools",
     fromMe: isPublic,
@@ -41,7 +41,7 @@ Sparky({
             promptText = input.split(" ").slice(1).join(" ");
         }
 
-        if (!promptText) {
+        if (!promptText.trim()) {
             return m.reply("❌ Style එකෙන් පස්සේ prompt එක දෙන්න!");
         }
 
@@ -55,26 +55,46 @@ Sparky({
             `&style=${encodeURIComponent(style)}` +
             `&ratio=1:1&key=${apiKey}`;
 
+        console.log("📡 API URL:", apiUrl);
+
         const response = await axios.get(apiUrl, { timeout: 30000 });
 
         const data = response?.data;
 
-        if (data?.status && data?.result) {
+        console.log("📦 API RESPONSE:", data);
 
-            const caption = `✨ *AI Generated Image*\n\n🎭 *Style:* ${style}\n📝 *Prompt:* ${promptText}`;
+        // =========================
+        // 🧠 SMART RESULT HANDLING
+        // =========================
+        const imageUrl =
+            data?.result ||
+            data?.image ||
+            data?.url ||
+            data?.data?.result ||
+            data?.data?.image;
 
-            return await m.send(
-                data.result,
-                { caption },
-                "image",
-                m
+        if (!imageUrl) {
+            return m.reply(
+                "❌ Image generate කරන්න බැරි වුණා.\n\n📦 API Response:\n" +
+                JSON.stringify(data, null, 2)
             );
         }
 
-        return m.reply("❌ Image generate කරන්න බැරි වුණා. API error.");
+        const caption =
+            `✨ *AI Generated Image*\n\n` +
+            `🎭 *Style:* ${style}\n` +
+            `📝 *Prompt:* ${promptText}`;
+
+        return await m.send(imageUrl, { caption }, "image", m);
 
     } catch (err) {
-        console.error(err);
-        return m.reply("❌ Error: " + (err.message || "Unknown"));
+        console.error("❌ ERROR:", err);
+
+        return m.reply(
+            "❌ Error occurred:\n" +
+            (err.response?.data
+                ? JSON.stringify(err.response.data, null, 2)
+                : err.message || "Unknown error")
+        );
     }
 });
