@@ -14,7 +14,6 @@ let autoReplies = [];
 // -------------------------
 function loadData() {
     try {
-        // ෆෝල්ඩරය නැත්නම් ඔටෝ හදනවා (ලෙඩ එන එක නවතින්න)
         if (!fs.existsSync(DB_DIR)) {
             fs.mkdirSync(DB_DIR, { recursive: true });
         }
@@ -47,20 +46,18 @@ loadData();
 
 
 // ======================================================
-// ➕ ADD AUTO REPLY
+// ➕ ADD AUTO REPLY (OWNER ONLY)
 // ======================================================
 Sparky({
     name: "addreply",
     alias: ["ar"],
     category: "tools",
-    fromMe: isPublic,
-    desc: "Add auto reply keyword"
+    fromMe: false, // 🔒 බොට්ගේ අයිතිකරුට (Owner) පමණක් වැඩ කිරීමට false කරන ලදී
+    desc: "Add auto reply keyword (Owner Only)"
 }, async ({ m, text }) => {
     try {
-        // text එක නැත්නම් m.text හෝ m.body වලින් backup එකක් ගන්නවා
         let inputBody = text || m.text || m.body || "";
         
-        // කමාන්ඩ් එක අයින් කරලා ඉතුරු ටික විතරක් ගන්නවා (| එක තියෙන කොටස)
         if (inputBody.startsWith(".")) {
             inputBody = inputBody.replace(/^\.\w+\s+/, "");
         }
@@ -79,7 +76,6 @@ Sparky({
             return m.reply("❌ Keyword or reply missing!");
         }
 
-        // duplicate check
         const exists = autoReplies.find(r => r.keyword === keyword);
         if (exists) {
             return m.reply("⚠️ This keyword already exists!");
@@ -105,14 +101,14 @@ Sparky({
 
 
 // ======================================================
-// 🗑️ DELETE AUTO REPLY
+// 🗑️ DELETE AUTO REPLY (OWNER ONLY)
 // ======================================================
 Sparky({
     name: "delreply",
     alias: ["dr"],
     category: "tools",
-    fromMe: isPublic,
-    desc: "Delete auto reply keyword"
+    fromMe: false, // 🔒 බොට්ගේ අයිතිකරුට (Owner) පමණක් වැඩ කිරීමට false කරන ලදී
+    desc: "Delete auto reply keyword (Owner Only)"
 }, async ({ m, text }) => {
     try {
         let inputKey = text || m.text || m.body || "";
@@ -144,17 +140,16 @@ Sparky({
 
 
 // ======================================================
-// 📜 LIST AUTO REPLIES
+// 📜 LIST AUTO REPLIES (OWNER ONLY)
 // ======================================================
 Sparky({
     name: "listreply",
     alias: ["lr"],
     category: "tools",
-    fromMe: isPublic,
-    desc: "Show all auto replies"
+    fromMe: false, // 🔒 බොට්ගේ අයිතිකරුට (Owner) පමණක් වැඩ කිරීමට false කරන ලදී
+    desc: "Show all auto replies (Owner Only)"
 }, async ({ m }) => {
     try {
-        // cache එක අප්ඩේට් වී ඇත්දැයි නැවත ෆයිල් එක කියවා තහවුරු කරගමු
         loadData();
 
         if (!autoReplies.length) {
@@ -176,18 +171,16 @@ Sparky({
 
 
 // ======================================================
-// 🤖 AUTO REPLY LISTENER
+// 🤖 AUTO REPLY LISTENER (ANYONE CAN TRIGGER)
 // ======================================================
 Sparky({
     on: "text",
-    fromMe: isPublic
+    fromMe: isPublic // 🔓 ඕනෑම කෙනෙක් මැසේජ් එකක් දැම්මම ඔටෝ රිප්ලයි එක වැඩ කරයි
 }, async ({ m }) => {
     try {
-        // මෙතනදී m.body හෝ m.text කෙලින්ම භාවිතයෙන් ලෙඩ නැති කරගන්නවා
         const rawText = m.body || m.text || "";
         const msg = rawText.toLowerCase().trim();
         
-        // කමාන්ඩ් එකක් නම් (තව ප්ලගින් එකක් රන් වෙන වෙලාවක) රිප්ලයි නොකර ඉන්න
         if (!msg || msg.startsWith(".")) return;
 
         // exact match first
