@@ -3,12 +3,15 @@ const { Sparky, isPublic } = require("../lib");
 // --- 1. HELP / MENU COMMAND ---
 Sparky({
     name: "help",
-    alias: ["me"], // .menu ගැහුවමත් මේකම වැඩ කරන්න alias එකක් දැම්මා
+    alias: ["menu"],
     category: "main",
     fromMe: isPublic,
     desc: "Show bot help menu with buttons"
-}, async ({ m, client }) => { // client object එක අවශ්‍ය විය හැක
+}, async ({ m, client }) => {
     try {
+        // JID එක නිවැරදිව තෝරාගැනීම (m.chat නැත්නම් m.from)
+        const targetChat = m.chat || m.from; 
+
         const helpText = `╭━━━〔 ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎 〕━━━⬣
 ┃
 ┃ 👋 Welcome to X-KADIYA-MD Bot
@@ -30,7 +33,6 @@ Sparky({
 ┃
 ╰━━━━━━━━━━━━━━⬣`;
 
-        // බොත්තම් (Buttons) ඇතුළත් කරන කොටස
         const buttonMessage = {
             text: helpText,
             footer: "💎 X-KADIYA-MD 💎",
@@ -42,8 +44,8 @@ Sparky({
             headerType: 1
         };
 
-        // බටන් මැසේජ් එකක් විදිහට යැවීම
-        await client.sendMessage(m.chat, buttonMessage, { quoted: m });
+        // m.chat වෙනුවට targetChat ලබා දී ඇත
+        await client.sendMessage(targetChat, buttonMessage, { quoted: m });
 
     } catch (err) {
         console.error(err);
@@ -59,7 +61,10 @@ Sparky({
     desc: "Check bot speed"
 }, async ({ m, client }) => {
     try {
+        const targetChat = m.chat || m.from; 
+        
         const start = new Date().getTime();
+        // වේගය මැනීමට සරල text එකක් මුලින් යවමු
         const msg = await m.reply("Testing Speed... ⏳");
         const end = new Date().getTime();
         const responseTime = (end - start);
@@ -76,8 +81,7 @@ Sparky({
             headerType: 1
         };
 
-        // පරණ මැසේජ් එක මකලා බටන් එක යැවීම හෝ අලුතින්ම යැවීම
-        await client.sendMessage(m.chat, pingButtons, { quoted: m });
+        await client.sendMessage(targetChat, pingButtons, { quoted: m });
 
     } catch (err) {
         console.error(err);
