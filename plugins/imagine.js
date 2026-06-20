@@ -1,59 +1,80 @@
 const axios = require("axios");
 
 // ======================================================
-// 🎨 AI IMAGE GENERATOR (.imagine [විස්තරය])
+// 🎨 AI IMAGE GENERATOR (MULTI STYLE)
 // ======================================================
 Sparky({
-    name: "imagine",
+    name: "img",
     alias: ["genimg", "draw"],
     category: "tools",
-    fromMe: isPublic, 
-    desc: "Generate AI Images using XWolf API"
+    fromMe: isPublic,
+    desc: "Generate AI Images with multiple styles"
 }, async ({ m, text }) => {
     try {
-        let inputBody = text || m.text || m.body || "";
-        
-        if (inputBody.startsWith(".")) {
-            inputBody = inputBody.replace(/^\.\w+\s+/, "");
+
+        const input = (text || "").trim();
+
+        if (!input) {
+            return m.reply(
+                "❌ කරුණාකර prompt එකක් දෙන්න!\n\n💡 Example:\n.imagine anime a girl in forest\n.imagine cyberpunk city"
+            );
         }
 
-        const promptText = inputBody.trim();
+        // =========================
+        // 🎯 STYLE DETECTION
+        // =========================
+        let style = "oil-painting";
+        let promptText = input;
+
+        const styleMap = {
+            anime: "anime",
+            realistic: "realistic",
+            cyberpunk: "cyberpunk",
+            oil: "oil-painting",
+            painting: "oil-painting"
+        };
+
+        const firstWord = input.split(" ")[0].toLowerCase();
+
+        if (styleMap[firstWord]) {
+            style = styleMap[firstWord];
+            promptText = input.split(" ").slice(1).join(" ");
+        }
 
         if (!promptText) {
-            return m.reply("❌ කරුණාකර සාදාගත යුතු රූපයේ විස්තරයක් ලබා දෙන්න!\n\n💡 Example: .imagine a beautiful anime girl");
+            return m.reply("❌ Style එකෙන් පස්සේ prompt එක දෙන්න!");
         }
 
-        // පොඩ්ඩක් ඉන්න කියලා පණිවිඩයක් දානවා
-        await m.reply("🎨 *ඔබේ රූපය සකසමින් පවතී...*");
+        await m.reply(`🎨 *Generating ${style} image...*`);
 
-        const apiKey = "wxa_f_21e17ba43b";
-        
-        // සරලවම default style එකෙන් සහ ratio එකෙන් රූපය සෑදීමට URL එක සකස් කිරීම
-        const apiUrl = `https://apis.xwolf.space/api/ai/tools/style-transfer?prompt=${encodeURIComponent(promptText)}&style=oil-painting&ratio=1%3A1&key=${apiKey}`;
+        const apiKey = process.env.XWOLF_API_KEY || "wxa_f_21e17ba43b";
 
-        const response = await axios.get(apiUrl);
+        const apiUrl =
+            "https://apis.xwolf.space/api/ai/tools/style-transfer" +
+            `?prompt=${encodeURIComponent(promptText)}` +
+            `&style=${encodeURIComponent(style)}` +
+            `&ratio=1:1&key=${apiKey}`;
 
-        if (response.data && response.data.status === true && response.data.result) {
-            const imageUrl = response.data.result;
-            const captionText = `✨ *AI Generated Image*\n\n📝 *Prompt:* ${promptText}`;
+        const response = await axios.get(apiUrl, { timeout: 30000 });
 
-            // 🛠️ ක්‍රමය 1: Sparky වල බහුලවම පාවිච්චි වන සරලම ක්‍රමය (Caption එකත් එක්කම Image එක යැවීම)
-            if (typeof m.sendFromUrl === "function") {
-                return await m.sendFromUrl(imageUrl, { caption: captionText, quoted: m });
-            } 
-            
-            // 🛠️ ක්‍රමය 2: (Fallback) එකක් විදිහට සාමාන්‍ය sendMessage ක්‍රමය
-            return await m.client.sendMessage(m.chat, { 
-                image: { url: imageUrl }, 
-                caption: captionText 
-            }, { quoted: m });
+        const data = response?.data;
 
-        } else {
-            return m.reply("❌ ඡායාරූපය නිර්මාණය කිරීමට නොහැකි වුණා. (API Error)");
+        if (data?.status && data?.result) {
+
+            const caption = `✨ *AI Generated Image*\n\n🎭 *Style:* ${style}\n📝 *Prompt:* ${promptText}`;
+
+            return await m.send(
+                data.result,
+                { caption },
+                "image",
+                m
+            );
         }
+
+        return m.reply("❌ Image generate කරන්න බැරි වුණා. API error.");
 
     } catch (err) {
-        console.error("❌ Image Gen Error:", err);
-        return m.reply("❌ Error එකක් සිදු වුණා: " + err.message);
+        console.error(err);
+        return m.reply("❌ Error: " + (err.message || "Unknown"));
     }
 });
