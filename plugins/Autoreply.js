@@ -2,10 +2,10 @@ const { Sparky, isPublic } = require("../lib");
 const fs = require("fs");
 const path = require("path");
 
-// 📂 JSON file path
+// 📂 Database file
 const DATA_FILE = path.join(__dirname, "../database/autoreplies.json");
 
-// 🧠 Memory store
+// 🧠 Memory cache
 let autoReplies = [];
 
 // -------------------------
@@ -14,11 +14,11 @@ let autoReplies = [];
 function loadData() {
     try {
         if (!fs.existsSync(DATA_FILE)) {
-            fs.writeFileSync(DATA_FILE, JSON.stringify([]));
+            fs.writeFileSync(DATA_FILE, JSON.stringify([], null, 2));
         }
         autoReplies = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
     } catch (err) {
-        console.error("Load error:", err);
+        console.error("❌ Load error:", err);
         autoReplies = [];
     }
 }
@@ -30,11 +30,11 @@ function saveData() {
     try {
         fs.writeFileSync(DATA_FILE, JSON.stringify(autoReplies, null, 2));
     } catch (err) {
-        console.error("Save error:", err);
+        console.error("❌ Save error:", err);
     }
 }
 
-// load on start
+// Load on start
 loadData();
 
 
@@ -50,15 +50,20 @@ Sparky({
 }, async ({ m, text }) => {
     try {
 
-        if (!text || !text.includes("|")) {
+        const input = (text || "").trim();
+
+        if (!input.includes("|")) {
             return m.reply("❌ Usage:\n.addreply keyword|message");
         }
 
-        // ✅ correct parsing
-        const [keywordPart, ...msgParts] = text.split("|");
+        const parts = input.split("|");
 
-        const keyword = keywordPart.trim().toLowerCase();
-        const reply = msgParts.join("|").trim();
+        if (parts.length < 2) {
+            return m.reply("❌ Usage:\n.addreply keyword|message");
+        }
+
+        const keyword = parts[0].trim().toLowerCase();
+        const reply = parts.slice(1).join("|").trim();
 
         if (!keyword || !reply) {
             return m.reply("❌ Keyword or reply missing!");
@@ -70,11 +75,16 @@ Sparky({
             return m.reply("⚠️ This keyword already exists!");
         }
 
-        autoReplies.push({ keyword, reply });
+        autoReplies.push({
+            keyword,
+            reply,
+            createdAt: Date.now()
+        });
+
         saveData();
 
         return m.reply(
-            `✅ Saved permanently!\n\n🔑 Keyword: ${keyword}\n💬 Reply: ${reply}`
+            `✅ Auto reply saved!\n\n🔑 Keyword: ${keyword}\n💬 Reply: ${reply}`
         );
 
     } catch (err) {
@@ -96,7 +106,7 @@ Sparky({
 }, async ({ m, text }) => {
     try {
 
-        const key = text.trim().toLowerCase();
+        const key = (text || "").trim().toLowerCase();
 
         if (!key) {
             return m.reply("❌ Usage:\n.delreply keyword");
@@ -112,7 +122,7 @@ Sparky({
 
         saveData();
 
-        return m.reply(`🗑️ Deleted permanently: ${key}`);
+        return m.reply(`🗑️ Deleted: ${key}`);
 
     } catch (err) {
         console.error("DelReply Error:", err);
@@ -161,11 +171,16 @@ Sparky({
 }, async ({ m, text }) => {
     try {
 
-        if (!text) return;
+        const msg = (text || "").toLowerCase().trim();
+        if (!msg) return;
 
-        const msg = text.toLowerCase();
+        // exact match first (better performance)
+        let rule = autoReplies.find(r => msg === r.keyword);
 
-        const rule = autoReplies.find(r => msg.includes(r.keyword));
+        // fallback partial match
+        if (!rule) {
+            rule = autoReplies.find(r => msg.includes(r.keyword));
+        }
 
         if (rule) {
             return await m.reply(rule.reply);
