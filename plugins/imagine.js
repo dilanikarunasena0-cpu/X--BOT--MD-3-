@@ -2,14 +2,14 @@ const axios = require("axios");
 const { Sparky, isPublic } = require("../lib"); 
 
 // ======================================================
-// 🎨 AI IMAGE GENERATOR (BUFFER BASED - 100% DIRECT PHOTO)
+// 🎨 AI IMAGE GENERATOR (FIXED FOR TEXT.MATCH ERROR)
 // ======================================================
 Sparky({
     name: "imagine",
     alias: ["genimg", "draw"],
     category: "tools",
     fromMe: isPublic,
-    desc: "Download and send AI Image as a real photo"
+    desc: "Generate AI Images and send as media correctly"
 }, async ({ m, text }) => {
     try {
         const input = (text || m.text || m.body || "").trim();
@@ -56,9 +56,10 @@ Sparky({
 
         const apiUrl = `https://apis.xwolf.space/api/ai/tools/style-transfer?prompt=${encodeURIComponent(promptText)}&style=${encodeURIComponent(style)}&ratio=1%3A1&key=${apiKey}`;
 
-        // 1. මුලින්ම API එකෙන් JSON response එක ගන්නවා
-        const apiResponse = await axios.get(apiUrl, { timeout: 45000 }); 
-        const data = apiResponse?.data;
+        console.log("📡 API URL:", apiUrl);
+
+        const response = await axios.get(apiUrl, { timeout: 45000 }); 
+        const data = response?.data;
 
         let imageUrl = data?.url || data?.result || data?.image || null;
 
@@ -69,37 +70,22 @@ Sparky({
             );
         }
 
-        // ======================================================
-        // 🛠️ NEW: DOWNLOAD THE IMAGE TO BUFFER (ෆොටෝ එක බාගත කිරීම)
-        // ======================================================
-        // ලින්ක් එකෙන් කෙලින්ම ඉමේජ් එක බෆර් එකක් විදිහට බාගන්නවා
-        const imageBufferResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' }).catch(() => null);
-        
-        if (!imageBufferResponse || !imageBufferResponse.data) {
-            return m.reply("❌ ඡායාරූපය ඩවුන්ලෝඩ් කර ගැනීමට නොහැකි වුණා.");
-        }
-
-        const imageBuffer = Buffer.from(imageBufferResponse.data, 'binary');
-
         const caption =
             `✨ *AI Generated Image*\n\n` +
             `🎭 *Style:* ${style}\n` +
             `📝 *Prompt:* ${promptText}`;
 
         // ======================================================
-        // 🛠️ DIRECT IMAGE BUFFER SENDING LOGIC
+        // 🛠️ X-BOT-MD OFFICIAL MEDIA SENDING FUNCTION
         // ======================================================
-        try {
-            // ක්‍රමය 1: බෆර් එක කෙලින්ම ඉමේජ් එකක් විදිහට යැවීම
-            return await m.reply(imageBuffer, { caption: caption, type: "image" });
-        } catch (e1) {
-            try {
-                // ක්‍රමය 2: විකල්ප Sparky/Baileys format එකක්
-                return await m.reply({ image: imageBuffer, caption: caption });
-            } catch (e2) {
-                // ක්‍රමය 3: ඉතාමත් පැරණි X-Bot සංස්කරණ සඳහා
-                return await m.reply(imageBuffer, "image", { caption: caption });
-            }
+        // X-BOT-MD වල ලින්ක් එකකින් ඉමේජ් එකක් යවන්න තියෙන නිවැරදිම විදිහ
+        if (typeof m.sendFromUrl === "function") {
+            return await m.sendFromUrl(imageUrl, { caption: caption, quoted: m });
+        } else if (typeof m.replyUrl === "function") {
+            return await m.replyUrl(imageUrl, { caption: caption });
+        } else {
+            // කිසිම function එකක් නැත්නම් පැරණි image object එක m.reply එකට දෙනවා string conversion එක වලක්වන්න
+            return await m.reply({ image: { url: imageUrl }, caption: caption });
         }
 
     } catch (err) {
