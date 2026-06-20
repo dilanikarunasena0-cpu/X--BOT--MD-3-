@@ -50,25 +50,15 @@ Sparky({
 }, async ({ m, text }) => {
     try {
 
-        if (!text) {
+        if (!text || !text.includes("|")) {
             return m.reply("❌ Usage:\n.addreply keyword|message");
         }
 
-        // remove command safely
-        const data = text.replace(/^\.?\w+\s+/i, "").trim();
+        // ✅ correct parsing
+        const [keywordPart, ...msgParts] = text.split("|");
 
-        if (!data.includes("|")) {
-            return m.reply("❌ Format:\n.addreply keyword|message");
-        }
-
-        const parts = data.split("|");
-
-        if (parts.length < 2) {
-            return m.reply("❌ Invalid format!");
-        }
-
-        const keyword = parts[0].trim().toLowerCase();
-        const reply = parts.slice(1).join("|").trim(); // allow | inside message
+        const keyword = keywordPart.trim().toLowerCase();
+        const reply = msgParts.join("|").trim();
 
         if (!keyword || !reply) {
             return m.reply("❌ Keyword or reply missing!");
@@ -106,7 +96,7 @@ Sparky({
 }, async ({ m, text }) => {
     try {
 
-        const key = text.replace(/^\.?\w+\s+/i, "").trim().toLowerCase();
+        const key = text.trim().toLowerCase();
 
         if (!key) {
             return m.reply("❌ Usage:\n.delreply keyword");
@@ -156,7 +146,7 @@ Sparky({
         return m.reply(msg);
 
     } catch (err) {
-        console.error(err);
+        console.error("ListReply Error:", err);
         m.reply("❌ Error fetching list");
     }
 });
