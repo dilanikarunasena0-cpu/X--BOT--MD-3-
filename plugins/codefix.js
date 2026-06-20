@@ -2,7 +2,7 @@ const axios = require("axios");
 const { Sparky, isPublic } = require("../lib"); 
 
 // ======================================================
-// 🔍 AI REPLY-BASED CODE DEBUGGER (PROFESSIONAL)
+// 🔍 AI REPLY-BASED CODE DEBUGGER (100% FIXED VERSION)
 // ======================================================
 Sparky({
     name: "fixcode",
@@ -12,7 +12,7 @@ Sparky({
     desc: "Reply to any buggy code with .fixcode to analyze and fix it."
 }, async ({ m, text }) => {
     try {
-        // 1. පරිශීលකයා වෙනත් මැසේජ් එකකට Reply (Quote) කරලා තියෙනවද බලනවා
+        // 1. පරිශීලකයා වෙනත් මැසේජ් එකකට Reply (Quote) කරලා තියෙනවද බලනවා
         let codeToFix = "";
 
         if (m.quoted && (m.quoted.text || m.quoted.body)) {
@@ -37,7 +37,7 @@ Sparky({
 
         const apiKey = "wxa_f_21e17ba43b"; 
 
-        // API එකට බර වැඩි නොවී ලස්සනට පිළිතුර ගන්න කෙටි පැහැදිලි කිරීමක් Prompt එකට එකතු කිරීම
+        // Prompt එක සරල කිරීම
         const fullPrompt = `Act as an expert code debugger. Fix errors in this code, explain shortly in English, and provide the fixed code in markdown block:\n\n${codeToFix.trim()}`;
 
         // XWolf API GPT-4o Endpoint
@@ -48,10 +48,28 @@ Sparky({
         const response = await axios.get(apiUrl, { timeout: 60000 });
         const data = response?.data;
 
-        let aiResult = data?.result || data?.reply || data?.data || null;
+        console.log("📦 Code Fixer API RESPONSE:", data);
 
-        if (!aiResult) {
-            return m.reply("❌ කේතය පරීක්ෂා කිරීමට නොහැකි වුණා. API Response එක හිස්.");
+        // ======================================================
+        // 🧠 SMART RESULT HANDLING (FIXED FOR ALL RESPONSE TYPES)
+        // ======================================================
+        let aiResult = null;
+
+        if (typeof data === "string") {
+            // API එකෙන් කෙලින්ම Text එකක් ආවොත්
+            aiResult = data;
+        } else if (data) {
+            // JSON Object එකක් ආවොත් හැම Key එකක්ම චෙක් කරනවා
+            aiResult = data.result || data.reply || data.response || data.data || (data.status === true ? data.result : null);
+        }
+
+        // කිසිම දෙයක් සෙට් වුනේ නැත්නම් data එක string එකක් කරලා ගන්නවා
+        if (!aiResult && data) {
+            aiResult = typeof data === "object" ? JSON.stringify(data) : data.toString();
+        }
+
+        if (!aiResult || aiResult.trim() === "") {
+            return m.reply("❌ කේතය පරීක්ෂා කිරීමට නොහැකි වුණා. API Response එක හිස්.\n\n📦 Raw Data: " + JSON.stringify(data));
         }
 
         const finalResponse = `💻 *AI CODE ASSISTANT & DEBUGGER*\n\n` +
