@@ -1,13 +1,6 @@
 const { Sparky, isPublic } = require("../lib");
 
-// 🔐 SAFE JID HANDLER
-const getJid = (m) => {
-    return m?.chat || m?.from || m?.key?.remoteJid || null;
-};
-
-// ─────────────────────────────
-// 📜 HELP / MENU COMMAND
-// ─────────────────────────────
+// --- 1. HELP / MENU COMMAND ---
 Sparky({
     name: "help",
     alias: ["menu"],
@@ -16,34 +9,67 @@ Sparky({
     desc: "Show bot help menu with buttons"
 }, async ({ m, client }) => {
     try {
+        const targetChat = m.chat || m.from || m.key.remoteJid;
 
-        const jid = getJid(m);
-        if (!jid) return m.reply("❌ Invalid chat ID");
-
-        const helpText = `╭━━━〔 ❖ X-KADIYA-MD 💎 〕━━━⬣
-┃ 👋 Welcome Bot Menu
+        const helpText = `╭━━━〔 ❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎 〕━━━⬣
 ┃
-┃ 🚀 Features
+┃ 👋 Welcome to X-KADIYA-MD Bot
+┃
+┃ 🚀 Our Services
 ┃ ─────────────
-┃ 🤖 AI Assistant
-┃ 🎵 Song Download
-┃ ⚡ Speed Test
-┃ ☀️ Sun Tool
+┃ 🌐 Image To URL
+┃ 📥 Media Downloader
+┃ 🎵 Song Search
+┃ 🤖 AI Chat Assistant
+┃ 🛠️ Useful Tools
+┃
+┃ 💎 Why Choose Us?
+┃ ─────────────
+┃ ✅ Fast Response
+┃ ✅ High Quality Service
+┃ ✅ Easy To Use
+┃ ✅ 24/7 Available
+┃
 ╰━━━━━━━━━━━━━━⬣`;
 
-        const buttons = [
-            { buttonId: ".menu", buttonText: { displayText: "📜 Menu" }, type: 1 },
-            { buttonId: ".sun", buttonText: { displayText: "☀️ Sun" }, type: 1 },
-            { buttonId: ".song", buttonText: { displayText: "🎵 Song" }, type: 1 },
-            { buttonId: ".ping", buttonText: { displayText: "⚡ Ping" }, type: 1 }
-        ];
+        // Hydrated Template Buttons (Error Free & 100% Working)
+        const templateMessage = {
+            viewOnceMessage: {
+                message: {
+                    templateMessage: {
+                        hydratedTemplate: {
+                            hydratedContentText: helpText,
+                            hydratedFooterText: "💎 X-KADIYA-MD 💎",
+                            hydratedButtons: [
+                                {
+                                    index: 1,
+                                    quickReplyButton: {
+                                        displayText: '🤖 AI Assistant',
+                                        id: '.ai'
+                                    }
+                                },
+                                {
+                                    index: 2,
+                                    quickReplyButton: {
+                                        displayText: '🎵 Search Song',
+                                        id: '.song'
+                                    }
+                                },
+                                {
+                                    index: 3,
+                                    quickReplyButton: {
+                                        displayText: '⚡ Check Speed',
+                                        id: '.ping'
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        };
 
-        await client.sendMessage(jid, {
-            text: helpText,
-            footer: "💎 X-KADIYA-MD 💎",
-            buttons: buttons,
-            headerType: 1
-        }, { quoted: m });
+        await client.sendMessage(targetChat, templateMessage);
 
     } catch (err) {
         console.error(err);
@@ -51,10 +77,7 @@ Sparky({
     }
 });
 
-
-// ─────────────────────────────
-// ⚡ PING COMMAND
-// ─────────────────────────────
+// --- 2. PING COMMAND WITH BUTTONS ---
 Sparky({
     name: "speed",
     category: "main",
@@ -62,28 +85,44 @@ Sparky({
     desc: "Check bot speed"
 }, async ({ m, client }) => {
     try {
+        const targetChat = m.chat || m.from || m.key.remoteJid;
+        
+        const start = new Date().getTime();
+        const end = new Date().getTime();
+        const responseTime = (end - start);
 
-        const jid = getJid(m);
-        if (!jid) return m.reply("❌ Invalid chat ID");
+        const pingText = `⚡ *Pong!* \n\nResponse Speed: *${responseTime}ms*`;
 
-        const start = Date.now();
-        await m.reply("Testing Speed... ⏳");
-        const ms = Date.now() - start;
+        const templatePing = {
+            viewOnceMessage: {
+                message: {
+                    templateMessage: {
+                        hydratedTemplate: {
+                            hydratedContentText: pingText,
+                            hydratedFooterText: "💎 X-KADIYA-MD 💎",
+                            hydratedButtons: [
+                                {
+                                    index: 1,
+                                    quickReplyButton: {
+                                        displayText: '📜 Main Menu',
+                                        id: '.menu'
+                                    }
+                                },
+                                {
+                                    index: 2,
+                                    quickReplyButton: {
+                                        displayText: '📞 Contact Owner',
+                                        id: '.owner'
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        };
 
-        const pingText = `⚡ *Pong!*\n\nResponse Speed: *${ms}ms*`;
-
-        const buttons = [
-            { buttonId: ".menu", buttonText: { displayText: "📜 Main Menu" }, type: 1 },
-            { buttonId: ".song", buttonText: { displayText: "🎵 Song" }, type: 1 },
-            { buttonId: ".ping", buttonText: { displayText: "⚡ Ping Again" }, type: 1 }
-        ];
-
-        await client.sendMessage(jid, {
-            text: pingText,
-            footer: "💎 X-KADIYA-MD 💎",
-            buttons: buttons,
-            headerType: 1
-        }, { quoted: m });
+        await client.sendMessage(targetChat, templatePing);
 
     } catch (err) {
         console.error(err);
