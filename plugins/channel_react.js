@@ -1,7 +1,7 @@
 const { Sparky } = require("../lib"); // ඔයාගේ alive.js එකේ තියෙන ලින්ක් එකමයි
 
 Sparky({
-    name: "channelreact",
+    name: "creact",
     alias: ["creact", "chreact"],
     category: "utility",
     desc: "WhatsApp Channels සඳහා ස්වයංක්‍රීය ප්‍රතිචාර දැක්වීම.",
