@@ -2,7 +2,7 @@ const { Sparky, isPublic } = require("../lib");
 const axios = require("axios");
 const config = require("../config");
 
-// සයිට් එකෙන් ෆිල්ම් එක සර්ච් කරලා පළමු ලින්ක් එක ගන්නා ශ්‍රිතය
+// සයිට් එකෙන් ෆิල්ම් එක සර්ච් කරලා පළමු ලින්ක් එක ගන්නා ශ්‍රිතය
 async function searchSinhalaSub(movieName) {
     try {
         // WordPress සර්ච් URL එක
@@ -40,9 +40,13 @@ Sparky({
         const botName = config.BOT_INFO?.split(";")[0] || "SADEW-MINI";
         const prefix = m.prefix || ".";
         
-        // ෆිල්ම් එකේ නම args වලින් ලබාගැනීම
-        let movieQuery = args.join(" ").trim();
+        // දෝෂය නිවැරදි කිරීම: args කියන්නේ array එකක්ද string එකක්ද කියලා බලලා text එක වෙන් කරගැනීම
+        let movieQuery = "";
+        if (args) {
+            movieQuery = Array.isArray(args) ? args.join(" ").trim() : args.toString().trim();
+        }
         
+        // මැසේජ් එකක් reply කරලා තිබ්බොත් ඒකෙ text එක ගන්න
         if (!movieQuery && m.quoted && m.quoted.text) movieQuery = m.quoted.text.trim();
         
         if (!movieQuery) {
