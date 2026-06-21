@@ -4,7 +4,7 @@ Sparky({
     name: "creact",
     alias: ["creact", "chreact"],
     category: "utility",
-    desc: "Reply කරන ලද ලින්ක් එකකට රියැක්ට් කිරීම (ප්‍රමාදයකින් තොරව).",
+    desc: "Reply කරන ලද ලින්ක් එකේ නියම ID එක සොයාගෙන රියැක්ට් කිරීම (Kadiya MD Verification සමඟ).",
     fromMe: false
 }, async ({ client, m, text }) => {
     try {
@@ -39,45 +39,79 @@ Sparky({
         if (isNaN(count) || count <= 0) count = 1;
         if (count > 50) count = 50;
 
-        await m.reply('🔄 දත්ත පරීක්ෂා කරමින් පවතිනවා...');
+        await m.reply('🔄 නාලිකා ආරක්ෂණ පද්ධතිය පරීක්ෂා කරමින් පවතිනවා...');
 
         let urlClean = channelLink.split('channel/')[1];
         if (!urlClean) return await m.reply('❌ සබැඳියේ ආකෘතිය වැරදියි.');
         
         let linkParts = urlClean.split('/');
         let inviteCode = linkParts[0];
-        let specificPostId = linkParts[1];
+        let urlPostId = linkParts[1];
 
+        // 1. චැනල් මෙටා දත්ත (About/Description ඇතුළුව) ලබා ගැනීම
         let queryResult = await client.newsletterMetadata('invite', inviteCode).catch(() => null);
         if (!queryResult || !queryResult.id) return await m.reply('❌ නාලිකාව සොයා ගැනීමට නොහැකි විය.');
         
-        let channelJid = queryResult.id;
-        let messageId;
+        // 🛡️ [KADIYA MD VERIFICATION SECURITY]
+        let channelAbout = queryResult.description || "";
+        
+        // About එක ඇතුළේ "kadiya md" තියෙනවද කියා පරීක්ෂා කිරීම (Case-insensitive)
+        if (!channelAbout.toLowerCase().includes("kadiya md")) {
+            return await m.reply(`❌ *ආරක්ෂණ දැනුම්දීමයි!* \n\nමෙම නාලිකාවේ 'About' (විස්තරය) තුළ *kadiya md* යන වචනය ඇතුළත් කර නොමැති බැවින් මෙම බොට් විධානය ක්‍රියාත්මක කළ නොහැක.`);
+        }
 
-        if (specificPostId) {
-            messageId = parseInt(specificPostId);
-        } else {
-            let messages = await client.fetchMessagesFromNewsletter({ jid: channelJid, count: 1 }).catch(() => null);
-            if (!messages || messages.length === 0) return await m.reply('❌ පණිවිඩයක් නැත.');
-            messageId = messages[0].id;
+        let channelJid = queryResult.id;
+        let messageId = null;
+
+        // 2. සර්වර් එකෙන් මැසේජ් Fetch කිරීම
+        let messages = await client.fetchMessagesFromNewsletter({ jid: channelJid, count: 30 }).catch(() => null);
+        
+        if (messages && messages.length > 0) {
+            if (urlPostId) {
+                let found = messages.find(msg => String(msg.id) === String(urlPostId));
+                if (found) {
+                    messageId = found.id;
+                } else {
+                    messageId = messages[0].id;
+                }
+            } else {
+                messageId = messages[0].id;
+            }
+        }
+
+        if (!messageId) {
+            messageId = urlPostId ? parseInt(urlPostId) : 1;
         }
 
         let selectedEmoji = Array.from(emojiInput)[0] || '❤️';
 
-        await m.reply(`🚀 *ප්‍රතිචාර ක්‍රියාවලිය ආරම්භ විය:*\n• නාලිකාව: ${queryResult.name}\n• ඉමෝජිය: ${selectedEmoji}\n• වාර ගණන: ${count}`);
+        await m.reply(`🚀 *ආරක්ෂණ පරීක්ෂාව සාර්ථකයි! ප්‍රතිචාර යැවීම ආරම්භ විය:*\n\n• නාලිකාව: ${queryResult.name}\n• සැබෑ පෝස්ට් ID: ${messageId}\n• වාර ගණන: ${count}`);
 
+        // 3. රියැක්ෂන් ලූප් එක
         for (let i = 0; i < count; i++) {
             try {
                 await client.sendMessage(channelJid, {
-                    react: { text: selectedEmoji, key: { remoteJid: channelJid, id: messageId, fromMe: false } }
+                    react: { 
+                        text: selectedEmoji, 
+                        key: { remoteJid: channelJid, id: messageId, fromMe: false } 
+                    }
                 });
-            } catch (err) {}
+            } catch (err) {
+                try {
+                    await client.relayMessage(channelJid, {
+                        reactionMessage: {
+                            text: selectedEmoji,
+                            messageId: messageId,
+                            key: { remoteJid: channelJid, fromMe: false, id: messageId }
+                        }
+                    }, { messageId: client.generateMessageID() });
+                } catch (e) {}
+            }
         }
 
-        return await m.reply(`✅ *ක්‍රියාවලිය සාර්ථකයි!*`);
+        return await m.reply(`✅ *${queryResult.name} පෝස්ට් එකට ප්‍රතිචාර යවා අවසන්!*`);
 
     } catch (globalError) {
         return await m.reply(`❌ දෝෂයක්: ${globalError.message}`);
     }
 });
-
