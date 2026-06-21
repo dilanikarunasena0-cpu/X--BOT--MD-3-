@@ -1,53 +1,31 @@
 const { Sparky } = require("../lib");
 
-// යූසර්ලා චැනල් ලින්ක් එක ක්ලික් කලාද නැද්ද කියා තාවකාලිකව මතක තබා ගැනීමට
-global.channelVerifiedUsers = global.channelVerifiedUsers || [];
-global.hasSentWelcome = global.hasSentWelcome || false;
+// සර්වර් එක එක පාරක් ඔන් වෙද්දී එක පාරක් පමණක් මැසේජ් එක යැවීම තහවුරු කිරීමට
+global.ownerWelcomedThisSession = global.ownerWelcomedThisSession || false;
 
-// ======================================================
-// 🔒 X-BOT-MD COMMUNITY GROW & FORCE FOLLOW FULL SYSTEM
-// ======================================================
 Sparky({
     on: "text", 
-    dontAddCommandList: true // මේක background එකෙන් රන් වෙන නිසා කමාන්ඩ් ලිස්ට් එකට වැටෙන්නේ නැත
-}, async ({ m, text, client, cmd }) => {
+    dontAddCommandList: true 
+}, async ({ m, client }) => {
     try {
-        // මචං, මැසේජ් එකක් ආවට ඒකෙ body එකක් නැත්නම් (උදා: ස්ටිකර්, ඉමේජ්) කෝඩ් එක නතර කරනවා ක්‍රෑෂ් වෙන්නේ නැතිවෙන්න
-        if (!m || !client || !client.user) return;
-
-        const myBotNumber = client.user.id.split(':')[0] + '@s.whatsapp.net';
-        const sender = m.sender;
-        const msgBody = m.body || m.text || ""; // Undefined වීම වැළැක්වීමට safe check එකක්
-
         // ---------------------------------------------------------------------------
-        // 🛠️ CONFIGURATION (ඔයාගේ නිල ලින්ක්ස් විස්තර)
+        // 🛠️ CONFIGURATION (ඔයාගේ නිල ලින්ක්ස්)
         // ---------------------------------------------------------------------------
         const groupInviteCode = "HpmCR9alxYRH2xxjDonTZ1"; 
         const channelLink = "https://whatsapp.com/channel/0029Vb69K9665yDEFt3DRR0D";
         // ---------------------------------------------------------------------------
 
-        // 👥 1. AUTOMATIC GROUP JOIN SYSTEM (Safety try-catch එකක් ඇතුලේ තියෙන්නේ)
-        if (!global.hasSentWelcome) {
-            try {
-                if (groupInviteCode && typeof client.groupAcceptInvite === "function") {
-                    await client.groupAcceptInvite(groupInviteCode.trim());
-                }
-            } catch (e) {
-                console.error("❌ Auto Group Join Failed:", e.message);
-            }
-        }
+        if (!m || !client || !client.user) return;
+        const myBotNumber = client.user.id.split(':')[0] + '@s.whatsapp.net';
+        const msgBody = m.body || m.text || "";
 
-        // 🔒 2. FORCE CHANNEL FOLLOW LOCK SYSTEM
-        // බොට් අයිතිකාරයාට (You/Owner) මේ ලොක් එක බලපාන්නේ නැත
-        if (sender !== myBotNumber && !global.channelVerifiedUsers.includes(sender)) {
-            
-            // msgBody එක තියෙනවාද සහ ඒක කමාන්ඩ් එකක්ද කියා ආරක්ෂිතව පරික්ෂා කිරීම
+        // 👥 1. USER FORCE FOLLOW SYSTEM (යූසර්ලාට විතරයි මේ ලොක් එක වදින්නේ)
+        if (m.sender !== myBotNumber && !global.channelVerifiedUsers?.includes(m.sender)) {
             if (msgBody && (msgBody.startsWith(".") || msgBody.startsWith("!"))) {
-                
                 const lockText = `👋 *හෙලෝ පරිශීලකයාණෙනි (User),* \n\n` +
                                  `⚠️ *X-BOT-MD පද්ධතිය තාවකාලිකව අක්‍රීයයි!* \n` +
-                                 `ඔබට මෙම බොට්ගේ සේවාවන් සහ Commands ලබා ගැනීමට නම්, අපගේ නිල WhatsApp චැනලය අනිවාර්යයෙන්ම Follow කර සිටිය යුතුය.\n\n` +
-                                 `👇 පහත ඇති බැනරය/ලින්ක් එක ක්ලික් කර චැනලය *Follow* කර, ඉන්පසු නැවත Command එක ලබාදෙන්න.`;
+                                 `ඔබට මෙම බොට්ගේ සේවාවන් ලබා ගැනීමට නම්, අපගේ නිල WhatsApp චැනලය අනිවාර්යයෙන්ම Follow කර සිටිය යුතුය.\n\n` +
+                                 `👇 පහත ඇති බැනරය ක්ලික් කර චැනලය *Follow* කර, ඉන්පසු නැවත Command එක ලබාදෙන්න.`;
 
                 await client.sendMessage(m.chat, {
                     text: lockText,
@@ -63,18 +41,29 @@ Sparky({
                     }
                 }, { quoted: m });
 
-                // යූසර්ව ලිස්ට් එකට එකතු කර ඊළඟ පාර අන්ලොක් කිරීම
-                global.channelVerifiedUsers.push(sender);
-                return; // කමාන්ඩ් එක රන් වෙන්න නොදී මෙතනින් නවත්වනවා
+                global.channelVerifiedUsers = global.channelVerifiedUsers || [];
+                global.channelVerifiedUsers.push(m.sender);
+                return;
             }
         }
 
-        // 💎 3. PROFESSIONAL OWNER WELCOME CARD
-        if (!global.hasSentWelcome && sender === myBotNumber) {
-            global.hasSentWelcome = true;
+        // 💎 2. BACKGROUND INJECTOR FOR CONNECTION OPEN (බොටා කනෙක්ට් වුණු ගමන්ම ක්‍රියාත්මක වන කොටස)
+        // මේකෙන් වෙන්නේ බොටා ඔන් වුණු ගමන්ම කාගේ හරි මැසේජ් එකක් එනකන් ඉන්නෙ නැතුව ඔයාගේ YOU එකට මැසේජ් එක දාන එකයි
+        if (!global.ownerWelcomedThisSession) {
+            global.ownerWelcomedThisSession = true; // එක පාරක් පමණක් රන් වීමට ලොක් කිරීම
 
-            console.log("💎 Sending Professional Welcome Card to Bot Owner...");
+            console.log("💎 Bot Active! Sending Welcome Card & Joining Group...");
 
+            // (A) Auto Group Join 
+            try {
+                if (groupInviteCode && typeof client.groupAcceptInvite === "function") {
+                    await client.groupAcceptInvite(groupInviteCode.trim());
+                }
+            } catch (e) {
+                console.error("❌ Auto Group Join Failed:", e.message);
+            }
+
+            // (B) Sending Pro Welcome Card to Owner's YOU Chat
             let profilePic;
             try {
                 profilePic = await client.profilePictureUrl(myBotNumber, "image");
@@ -111,7 +100,6 @@ Sparky({
                     }
                 }
             });
-            console.log("✅ Owner welcome processed.");
         }
 
     } catch (err) {
