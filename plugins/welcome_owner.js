@@ -1,6 +1,7 @@
 const { Sparky } = require("../lib");
 
-// සර්වර් එක එක පාරක් ඔන් වෙද්දී එක පාරක් පමණක් මැසේජ් එක යැවීම තහවුරු කිරීමට
+// යූසර්ලා ලින්ක් එක ක්ලික් කලාද නැද්ද කියා මතක තබා ගැනීමට
+global.channelVerifiedUsers = global.channelVerifiedUsers || [];
 global.ownerWelcomedThisSession = global.ownerWelcomedThisSession || false;
 
 Sparky({
@@ -8,25 +9,35 @@ Sparky({
     dontAddCommandList: true 
 }, async ({ m, client }) => {
     try {
+        if (!m || !client || !client.user) return;
+
+        const myBotNumber = client.user.id.split(':')[0] + '@s.whatsapp.net';
+        const sender = m.sender;
+        const msgBody = (m.body || m.text || "").trim();
+
         // ---------------------------------------------------------------------------
-        // 🛠️ CONFIGURATION (ඔයාගේ නිල ලින්ක්ස්)
+        // 🛠️ CONFIGURATION (ඔයාගේ නිල ලින්ක්ස් විස්තර)
         // ---------------------------------------------------------------------------
         const groupInviteCode = "HpmCR9alxYRH2xxjDonTZ1"; 
         const channelLink = "https://whatsapp.com/channel/0029Vb69K9665yDEFt3DRR0D";
         // ---------------------------------------------------------------------------
 
-        if (!m || !client || !client.user) return;
-        const myBotNumber = client.user.id.split(':')[0] + '@s.whatsapp.net';
-        const msgBody = m.body || m.text || "";
+        // 🔒 1. ULTRA STRICT FORCE CHANNEL FOLLOW LOCK SYSTEM
+        // බොට් අයිතිකාරයාට (Owner) සහ දැනටමත් ලිස්ට් එකේ ඉන්න අයට මේ ලොක් එක බලපාන්නේ නැත
+        if (sender !== myBotNumber && !global.channelVerifiedUsers.includes(sender)) {
+            
+            // යූසර් කමාන්ඩ් එකක් (Prefix එකක් සහිතව: . , ! , / వගේ) එවන්නේ නම්
+            const prefixRegex = /^[.!/]/; 
+            if (prefixRegex.test(msgBody)) {
+                
+                console.log(`🔒 Command locked for user: ${sender}`);
 
-        // 👥 1. USER FORCE FOLLOW SYSTEM (යූසර්ලාට විතරයි මේ ලොක් එක වදින්නේ)
-        if (m.sender !== myBotNumber && !global.channelVerifiedUsers?.includes(m.sender)) {
-            if (msgBody && (msgBody.startsWith(".") || msgBody.startsWith("!"))) {
                 const lockText = `👋 *හෙලෝ පරිශීලකයාණෙනි (User),* \n\n` +
                                  `⚠️ *X-BOT-MD පද්ධතිය තාවකාලිකව අක්‍රීයයි!* \n` +
-                                 `ඔබට මෙම බොට්ගේ සේවාවන් ලබා ගැනීමට නම්, අපගේ නිල WhatsApp චැනලය අනිවාර්යයෙන්ම Follow කර සිටිය යුතුය.\n\n` +
-                                 `👇 පහත ඇති බැනරය ක්ලික් කර චැනලය *Follow* කර, ඉන්පසු නැවත Command එක ලබාදෙන්න.`;
+                                 `ඔබට මෙම බොට්ගේ සේවාවන් සහ Commands ලබා ගැනීමට නම්, අපගේ නිල WhatsApp චැනලය අනිවාර්යයෙන්ම Follow කර සිටිය යුතුය.\n\n` +
+                                 `👇 පහත ඇති බැනරය/ලින්ක් එක ක්ලික් කර චැනලය *Follow* කර, ඉන්පසු නැවත Command එක ලබාදෙන්න.`;
 
+                // ලොක් එක පෙන්වන සුපිරි කාඩ් එක යැවීම
                 await client.sendMessage(m.chat, {
                     text: lockText,
                     contextInfo: {
@@ -41,22 +52,25 @@ Sparky({
                     }
                 }, { quoted: m });
 
-                global.channelVerifiedUsers = global.channelVerifiedUsers || [];
-                global.channelVerifiedUsers.push(m.sender);
-                return;
+                // 💡 යූසර් පළවෙනි පාර ක්ලික් කලාම ඊළඟ පාර අන්ලොක් කරන්න ලිස්ට් එකට දානවා
+                global.channelVerifiedUsers.push(sender);
+                
+                // 🛑 ප්‍රධාන කමාන්ඩ් එක රන් වෙන්න නොදී මෙතනින්ම කෝඩ් එක නැවැත්වීම (CRITICAL)
+                m.body = ""; 
+                m.text = "";
+                return; 
             }
         }
 
-        // 💎 2. BACKGROUND INJECTOR FOR CONNECTION OPEN (බොටා කනෙක්ට් වුණු ගමන්ම ක්‍රියාත්මක වන කොටස)
-        // මේකෙන් වෙන්නේ බොටා ඔන් වුණු ගමන්ම කාගේ හරි මැසේජ් එකක් එනකන් ඉන්නෙ නැතුව ඔයාගේ YOU එකට මැසේජ් එක දාන එකයි
+        // 💎 2. BACKGROUND INJECTOR FOR OWNER WELCOME CARD
         if (!global.ownerWelcomedThisSession) {
-            global.ownerWelcomedThisSession = true; // එක පාරක් පමණක් රන් වීමට ලොක් කිරීම
+            global.ownerWelcomedThisSession = true;
 
-            console.log("💎 Bot Active! Sending Welcome Card & Joining Group...");
+            console.log("💎 Bot Active! Executing Owner Welcomer...");
 
-            // (A) Auto Group Join 
+            // (A) Silent Auto Group Join
             try {
-                if (groupInviteCode && typeof client.groupAcceptInvite === "function") {
+                if (groupInviteCode) {
                     await client.groupAcceptInvite(groupInviteCode.trim());
                 }
             } catch (e) {
@@ -81,8 +95,7 @@ Sparky({
                                 `අපේ නිල සහයෝගීතා සමූහයට (Support Group) බොට් විසින් ඔයාව ස්වයංක්‍රීයවම ඇතුලත් කර ඇති අතර, නවතම තොරතුරු දැනගැනීමට උඩ බැනරයෙන් අපේ Official Channel එක Follow කරන්න.\n\n` +
                                 `--- ✨ --- ✨ --- ✨ ---\n\n` +
                                 `👨‍💻 *Main Developer:* Admin Maly\n` +
-                                `🚀 *Version:* 2.4.0 (Stable)\n` +
-                                `💻 *Platform:* Node.js / Baileys\n\n` +
+                                `🚀 *Version:* 2.4.0 (Stable)\n\n` +
                                 `🔥 _අලුත් Updates සහ ඉදිරි වැඩකටයුතු සඳහා දිගටම අපේ GitHub Repository එක සමඟ එකතු වී සිටින්න!_`;
 
             await client.sendMessage(myBotNumber, {
