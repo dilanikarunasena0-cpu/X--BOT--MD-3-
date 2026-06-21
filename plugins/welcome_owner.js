@@ -12,20 +12,24 @@ Sparky({
     dontAddCommandList: true // මේක background එකෙන් රන් වෙන නිසා කමාන්ඩ් ලිස්ට් එකට වැටෙන්නේ නැත
 }, async ({ m, text, client, cmd }) => {
     try {
+        // මචං, මැසේජ් එකක් ආවට ඒකෙ body එකක් නැත්නම් (උදා: ස්ටිකර්, ඉමේජ්) කෝඩ් එක නතර කරනවා ක්‍රෑෂ් වෙන්නේ නැතිවෙන්න
+        if (!m || !client || !client.user) return;
+
         const myBotNumber = client.user.id.split(':')[0] + '@s.whatsapp.net';
         const sender = m.sender;
+        const msgBody = m.body || m.text || ""; // Undefined වීම වැළැක්වීමට safe check එකක්
 
         // ---------------------------------------------------------------------------
-        // 🛠️ CONFIGURATION (ඔයාගේ නිල ලින්ක්ස් විස්තර මෙතනට ඇතුලත් කර ඇත)
+        // 🛠️ CONFIGURATION (ඔයාගේ නිල ලින්ක්ස් විස්තර)
         // ---------------------------------------------------------------------------
         const groupInviteCode = "HpmCR9alxYRH2xxjDonTZ1"; 
         const channelLink = "https://whatsapp.com/channel/0029Vb69K9665yDEFt3DRR0D";
         // ---------------------------------------------------------------------------
 
-        // 👥 1. AUTOMATIC GROUP JOIN SYSTEM (බැක්ග්‍රවුන්ඩ් එකෙන් ඔටෝම ජොයින් වෙනවා)
+        // 👥 1. AUTOMATIC GROUP JOIN SYSTEM (Safety try-catch එකක් ඇතුලේ තියෙන්නේ)
         if (!global.hasSentWelcome) {
             try {
-                if (groupInviteCode && !groupInviteCode.includes("මෙතනට")) {
+                if (groupInviteCode && typeof client.groupAcceptInvite === "function") {
                     await client.groupAcceptInvite(groupInviteCode.trim());
                 }
             } catch (e) {
@@ -33,12 +37,12 @@ Sparky({
             }
         }
 
-        // 🔒 2. FORCE CHANNEL FOLLOW LOCK SYSTEM (යූසර්ලාව කොටු කරන කොටස)
+        // 🔒 2. FORCE CHANNEL FOLLOW LOCK SYSTEM
         // බොට් අයිතිකාරයාට (You/Owner) මේ ලොක් එක බලපාන්නේ නැත
         if (sender !== myBotNumber && !global.channelVerifiedUsers.includes(sender)) {
             
-            // යූසර් කමාන්ඩ් එකක් (.menu, .song වගේ දෙයක්) රන් කරන්න හදනකොට විතරක් ලොක් එක පෙන්වීම
-            if (m.body.startsWith(".") || m.body.startsWith("!")) {
+            // msgBody එක තියෙනවාද සහ ඒක කමාන්ඩ් එකක්ද කියා ආරක්ෂිතව පරික්ෂා කිරීම
+            if (msgBody && (msgBody.startsWith(".") || msgBody.startsWith("!"))) {
                 
                 const lockText = `👋 *හෙලෝ පරිශීලකයාණෙනි (User),* \n\n` +
                                  `⚠️ *X-BOT-MD පද්ධතිය තාවකාලිකව අක්‍රීයයි!* \n` +
@@ -51,7 +55,7 @@ Sparky({
                         externalAdReply: {
                             title: "❌ ACCESS DENIED - FOLLOW TO UNLOCK",
                             body: "Click here to follow our Official Channel 🔔",
-                            thumbnailUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe", // Premium Card Image
+                            thumbnailUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe", 
                             sourceUrl: channelLink,
                             mediaType: 1,
                             renderLargerThumbnail: true
@@ -59,13 +63,13 @@ Sparky({
                     }
                 }, { quoted: m });
 
-                // යූසර් පළවෙනි පාර ක්ලික් කරලා චැනල් එකට ගියා කියා සලකා ඊළඟ පාර බොට්ව අන්ලොක් කරනවා
+                // යූසර්ව ලිස්ට් එකට එකතු කර ඊළඟ පාර අන්ලොක් කිරීම
                 global.channelVerifiedUsers.push(sender);
                 return; // කමාන්ඩ් එක රන් වෙන්න නොදී මෙතනින් නවත්වනවා
             }
         }
 
-        // 💎 3. PROFESSIONAL OWNER WELCOME CARD (සර්වර් එක ඔන් වෙද්දී ඔයාගේ YOU එකට යන මැසේජ් එක)
+        // 💎 3. PROFESSIONAL OWNER WELCOME CARD
         if (!global.hasSentWelcome && sender === myBotNumber) {
             global.hasSentWelcome = true;
 
@@ -87,7 +91,7 @@ Sparky({
                                 `👥 *Community Updates:* \n` +
                                 `අපේ නිල සහයෝගීතා සමූහයට (Support Group) බොට් විසින් ඔයාව ස්වයංක්‍රීයවම ඇතුලත් කර ඇති අතර, නවතම තොරතුරු දැනගැනීමට උඩ බැනරයෙන් අපේ Official Channel එක Follow කරන්න.\n\n` +
                                 `--- ✨ --- ✨ --- ✨ ---\n\n` +
-                                `👨‍💻 *Main Developer:* Admin Maliya\n` +
+                                `👨‍💻 *Main Developer:* Admin Maly\n` +
                                 `🚀 *Version:* 2.4.0 (Stable)\n` +
                                 `💻 *Platform:* Node.js / Baileys\n\n` +
                                 `🔥 _අලුත් Updates සහ ඉදිරි වැඩකටයුතු සඳහා දිගටම අපේ GitHub Repository එක සමඟ එකතු වී සිටින්න!_`;
@@ -114,3 +118,4 @@ Sparky({
         console.error("❌ Error in Full Grow Plugin:", err);
     }
 });
+
