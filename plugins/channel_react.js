@@ -4,7 +4,7 @@ Sparky({
     name: "creact",
     alias: ["creact", "chreact"],
     category: "utility",
-    desc: "Reply කරන ලද ලින්ක් එකේ නියම ID එක සොයාගෙන රියැක්ට් කිරීම (Kadiya MD Verification සමඟ).",
+    desc: "Verification සහ Auto-Follow සමඟ චැනල් පෝස්ට් එකට රියැක්ට් කිරීම.",
     fromMe: false
 }, async ({ client, m, text }) => {
     try {
@@ -28,7 +28,7 @@ Sparky({
             return await m.reply(`ℹ️ *Pro Channel React* ℹ️\n\n` +
                 `*භාවිතය:* ලින්ක් මැසේජ් එකට Reply කරමින්:\n` +
                 `👉 .creact [Emoji] [Count]\n` +
-                `*උදා:* .creact 🥲 10`);
+                `*උදා:* .creact ❤️‍🩹 10`);
         }
 
         let parts = text ? text.trim().split(/\s+/) : [];
@@ -39,7 +39,7 @@ Sparky({
         if (isNaN(count) || count <= 0) count = 1;
         if (count > 50) count = 50;
 
-        await m.reply('🔄 නාලිකා ආරක්ෂණ පද්ධතිය පරීක්ෂා කරමින් පවතිනවා...');
+        await m.reply('🔄 ආරක්ෂණ පද්ධතිය සහ නාලිකා සම්බන්ධතාවය පරීක්ෂා කරමින් පවතිනවා...');
 
         let urlClean = channelLink.split('channel/')[1];
         if (!urlClean) return await m.reply('❌ සබැඳියේ ආකෘතිය වැරදියි.');
@@ -48,19 +48,37 @@ Sparky({
         let inviteCode = linkParts[0];
         let urlPostId = linkParts[1];
 
-        // 1. චැනල් මෙටා දත්ත (About/Description ඇතුළුව) ලබා ගැනීම
+        // 1. චැනල් මෙටා දත්ත ලබා ගැනීම
         let queryResult = await client.newsletterMetadata('invite', inviteCode).catch(() => null);
         if (!queryResult || !queryResult.id) return await m.reply('❌ නාලිකාව සොයා ගැනීමට නොහැකි විය.');
         
-        // 🛡️ [KADIYA MD VERIFICATION SECURITY]
+        let channelJid = queryResult.id;
+
+        // 🛡️ [KADIYA MD VERIFICATION - FIXED]
+        // Description එක queryResult එකේ නැත්නම්, client.newsletterMetadata('jid', channelJid) මඟින් නැවත ලබා ගැනීම
         let channelAbout = queryResult.description || "";
+        if (!channelAbout) {
+            let extraMeta = await client.newsletterMetadata('jid', channelJid).catch(() => null);
+            if (extraMeta && extraMeta.description) {
+                channelAbout = extraMeta.description;
+            }
+        }
         
-        // About එක ඇතුළේ "kadiya md" තියෙනවද කියා පරීක්ෂා කිරීම (Case-insensitive)
+        // පරීක්ෂාව (Case-insensitive)
         if (!channelAbout.toLowerCase().includes("kadiya md")) {
-            return await m.reply(`❌ *ආරක්ෂණ දැනුම්දීමයි!* \n\nමෙම නාලිකාවේ 'About' (විස්තරය) තුළ *kadiya md* යන වචනය ඇතුළත් කර නොමැති බැවින් මෙම බොට් විධානය ක්‍රියාත්මක කළ නොහැක.`);
+            return await m.reply(`❌ *ආරක්ෂණ දැනුම්දීමයි!* \n\nමෙම නාලිකාවේ 'About' තුළ *kadiya md* යන වචනය ඇතුළත් කර නොමැති බැවින් මෙම විධානය ක්‍රියාත්මක කළ නොහැක.`);
         }
 
-        let channelJid = queryResult.id;
+        // 🔄 [AUTO-FOLLOW FIX] රියැක්ට් වැදීමට නම් බොටා චැනල් එක Follow කර තිබිය යුතුය!
+        try {
+            if (queryResult.viewer_metadata?.role === 'guest' || !queryResult.viewer_metadata) {
+                await client.newsletter('follow', channelJid).catch(() => null);
+                await new Promise(resolve => setTimeout(resolve, 1000)); // තත්පරයක් රැඳීම
+            }
+        } catch (e) {
+            console.log("Auto-follow error, skipping...");
+        }
+
         let messageId = null;
 
         // 2. සර්වර් එකෙන් මැසේජ් Fetch කිරීම
@@ -85,11 +103,12 @@ Sparky({
 
         let selectedEmoji = Array.from(emojiInput)[0] || '❤️';
 
-        await m.reply(`🚀 *ආරක්ෂණ පරීක්ෂාව සාර්ථකයි! ප්‍රතිචාර යැවීම ආරම්භ විය:*\n\n• නාලිකාව: ${queryResult.name}\n• සැබෑ පෝස්ට් ID: ${messageId}\n• වාර ගණන: ${count}`);
+        await m.reply(`🚀 *පරීක්ෂාව සාර්ථකයි! ප්‍රතිචාර යැවීම ආරම්භ විය:*\n\n• නාලිකාව: ${queryResult.name}\n• පෝස්ට් ID: ${messageId}\n• වාර ගණන: ${count}`);
 
         // 3. රියැක්ෂන් ලූප් එක
         for (let i = 0; i < count; i++) {
             try {
+                // ක්‍රමය 01
                 await client.sendMessage(channelJid, {
                     react: { 
                         text: selectedEmoji, 
@@ -97,6 +116,7 @@ Sparky({
                     }
                 });
             } catch (err) {
+                // ක්‍රමය 02 (Fallback)
                 try {
                     await client.relayMessage(channelJid, {
                         reactionMessage: {
@@ -115,3 +135,4 @@ Sparky({
         return await m.reply(`❌ දෝෂයක්: ${globalError.message}`);
     }
 });
+
