@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@viper-x/fancytext": "^1.0.2",
-    "baileys": "latest",
+    "baileys": "^7.0.0",
     "axios": "^1.7.7",
     "browser-id3-writer": "^4.4.0",
     "cheerio": "^1.0.0",
