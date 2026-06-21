@@ -5,7 +5,6 @@ const config = require("../config");
 // සයිට් එකෙන් ෆිල්ම් එක සර්ච් කරලා පළමු ලින්ක් එක ගන්නා ශ්‍රිතය
 async function searchSinhalaSub(movieName) {
     try {
-        // WordPress සර්ච් URL එක
         const searchUrl = `https://sinhalasub.lk/?s=${encodeURIComponent(movieName)}`;
         
         const response = await axios.get(searchUrl, {
@@ -15,12 +14,10 @@ async function searchSinhalaSub(movieName) {
         });
         
         const html = response.data;
-        
-        // HTML එකෙන් පළවෙනිම ෆිල්ම් පෝස්ට් එකේ ලින්ක් එක වෙන් කරගැනීම (Regex භාවිතයෙන්)
         const matches = html.match(/href="(https:\/\/sinhalasub\.lk\/movies\/[^"]+)"/);
         
         if (matches && matches[1]) {
-            return matches[1]; // පළමු ලින්ක් එක රිටර්න් කරයි
+            return matches[1];
         }
         return null;
     } catch (error) {
@@ -40,13 +37,11 @@ Sparky({
         const botName = config.BOT_INFO?.split(";")[0] || "SADEW-MINI";
         const prefix = m.prefix || ".";
         
-        // args Array එකක්ද String එකක්ද කියලා බලලා text එක වෙන් කරගැනීම
         let movieQuery = "";
         if (args) {
             movieQuery = Array.isArray(args) ? args.join(" ").trim() : args.toString().trim();
         }
         
-        // මැසේජ් එකක් reply කරලා තිබ්බොත් ඒකෙ text එක ගන්න
         if (!movieQuery && m.quoted && m.quoted.text) movieQuery = m.quoted.text.trim();
         
         if (!movieQuery) {
@@ -62,65 +57,60 @@ Sparky({
         }
 
         if (!targetUrl) {
-            return await m.reply("❌ කණගาටුයි, එම නමින් චිත්‍රපටයක් සොයාගැනීමට නොහැකි විය. කරුණාකර නම නිවැරදිව type කරන්න.");
+            return await m.reply("❌ කණගාටුයි, එම නමින් චිත්‍රපටයක් සොයාගැනීමට නොහැකි විය. කරුණාකර නම නිවැරදිව type කරන්න.");
         }
 
-        // 2. සොයාගත් ලින්ක් එක ඔයාගේ API එකට යවා බයිපාස් ලින්ක් එක ලබාගැනීම
-        const apiKey = 'zan_w8lSd1pK_t79f2pa52p'; // ඔයාගේ API Key එක
+        // 2. සොයාගත් ලින්ක් එක ඔයාගේ API එකට යැවීම
+        const apiKey = 'zan_w8lSd1pK_t79f2pa52p'; 
         const apiUrl = `https://api.zanta-mini.store/api/sinhalasub/dl?apiKey=${apiKey}&text=${encodeURIComponent(targetUrl)}`;
 
         const response = await axios.get(apiUrl);
-        
-        // Terminal එකේ බලාගන්න API එකෙන් ආපු ඩේටා ටික print කරනවා
-        console.log("=== SINHALASUB API RESPONSE ===");
-        console.log(response.data);
-        console.log("===============================");
+        const resData = response.data;
 
-        let downloadLink = "";
-
-        // API එකෙන් විවිධ ක්‍රම වලට ඩේටා ආවොත් ඒ හැම එකක්ම චෙක් කරනවා
-        if (typeof response.data === 'string') {
-            downloadLink = response.data.trim();
-        } else if (response.data && response.data.result) {
-            downloadLink = response.data.result.toString().trim();
-        } else if (response.data && response.data.link) {
-            downloadLink = response.data.link.toString().trim();
-        } else if (response.data && response.data.url) {
-            downloadLink = response.data.url.toString().trim();
+        // API එක සාර්ථක නැත්නම් හෝ ලින්ක්ස් නැත්නම්
+        if (!resData || !resData.success || !resData.results || !resData.results.links) {
+            return await m.reply("❌ කණගාටුයි, මෙම චිත්‍රපටයට අදාළ ඩවුන්ලෝඩ් ලින්ක්ස් ලබාගැනීමට නොහැකි විය.");
         }
 
-        // ලින්ක් එකක් ලැබුණේ නැත්නම් හෝ http එකෙන් පටන් ගන්නේ නැත්නම් දෝෂය පෙන්වනවා
-        if (!downloadLink || !downloadLink.startsWith('http')) {
-            let apiErrorDetail = typeof response.data === 'object' ? JSON.stringify(response.data) : response.data;
-            return await m.reply(`❌ කණගාටුයි, මෙම චිත්‍රපටයට අදාළ ඩවුන්ලෝඩ් ලින්ක් එක ලබාගැනීමට නොහැකි විය.\n\n*API Response:* ${apiErrorDetail}`);
-        }
+        const results = resData.results;
+        const linksArray = results.links;
 
-        // ෆිල්ම් එකේ නම පෝස්ට් ලින්ක් එකෙන් ලස්සනට වෙන් කරගැනීම
+        // ෆිල්ම් එකේ නම පෝස්ට් ලින්ක් එකෙන් වෙන් කරගැනීම
         const displayTitle = targetUrl.split("/movies/")[1]?.replace(/-/g, " ").replace(/\//g, "").toUpperCase() || movieQuery.toUpperCase();
+        
+        // API එකෙන් එන Thumbnail එක පාවිච්චි කිරීම (නැත්නම් default එකක්)
+        const imagePoster = results.thumbnail ? results.thumbnail.trim() : "https://res.cloudinary.com/dqlh378fb/image/upload/v1780800370/zanta_media_uploads/y2qrw8srsw1v4dsu5wxv.jpg";
 
-        // 3. මැසේජ් එක සැකසීම
+        // 3. ලින්ක්ස් ටික ලස්සනට පෙළගැස්වීම
+        let linksText = "";
+        linksArray.forEach((link, index) => {
+            linksText += `📍 *${index + 1}. ${link.quality} (${link.size})*\n🔗 ${link.direct_link}\n\n`;
+        });
+
+        // 4. මැසේජ් එක සැකසීම
         const status = `
 ╭───────────────◉
 │ *🎬 SINHALASUB DOWNLOADER*
 ├───────────────◉
 │✨ *Movie:* ${displayTitle}
-│📥 Status: Link Generated!
-│
-│🔗 *Download Link:* ${downloadLink}
+│⭐ *Rating:* ${results.rating || "N/A"}
+│📥 *Status:* Links Generated Successfully!
 ╰────────────────◉
+
+*📥 DOWNLOAD LINKS:*
+${linksText}
 > ${botName} WhatsApp Bot
 
 *Reply with:*
 1️⃣ .menu (ප්‍රධාන මෙනුවට යාමට)
-2️⃣ Direct Link එක මැසේජ් එකක් ලෙස ලබාගැනීමට
 
 • ඔබගේ සේවාව සදහා X KADIYA MD සැමවිටම සූදානම්.❤️‍🩹
 `;
 
-        // මැසේජ් එක සෙන්ඩ් කිරීම
+        // මැසේජ් එක සෙන්ඩ් කිරීම (චිත්‍රපටයේ Poster එක සමඟ)
         await client.sendMessage(m.jid, {
             image: {
-                url: "https://res.cloudinary.com/dqlh378fb/image/upload/v1780800370/zanta_media_uploads/y2qrw8srsw1v4dsu5wxv.jpg"
+                url: imagePoster
             },
             caption: status,
             contextInfo: {
@@ -130,14 +120,14 @@ Sparky({
             }
         }, { quoted: m });
 
-        // 4. Interactive Reply Filter
+        // 5. Interactive Reply Filter (.menu සඳහා පමණි)
         const filter = (msg) => {
             if (!msg?.message) return false;
             if (msg.key.remoteJid !== m.jid) return false;
             if (msg.key.fromMe) return false;
 
             const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
-            return ["1", "2"].includes(text.trim());
+            return ["1"].includes(text.trim());
         };
 
         const replyMsg = await new Promise((resolve) => {
@@ -166,7 +156,6 @@ Sparky({
             ""
         ).trim();
 
-        // 5. Reply එක අනුව ක්‍රියා කිරීම
         if (replyText === "1") {
             const fakeMsg = {
                 ...replyMsg,
@@ -179,10 +168,6 @@ Sparky({
                 messages: [fakeMsg],
                 type: "notify"
             });
-        } else if (replyText === "2") {
-            await client.sendMessage(m.jid, {
-                text: `${downloadLink}`
-            }, { quoted: m });
         }
 
     } catch (err) {
