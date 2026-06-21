@@ -40,6 +40,7 @@
     "simple-git": "^3.27.0",
     "node-cron": "^4.2.1",
     "wa-sticker-formatter": "^4.4.4",
-    "emoji-regex": "^10.6.0"
+    "emoji-regex": "^10.6.0",
+    "@whiskeysockets/baileys": "^7.0.0"
   }
 }
