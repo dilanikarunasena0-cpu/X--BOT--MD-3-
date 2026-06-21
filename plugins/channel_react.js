@@ -1,83 +1,157 @@
-// Baileys import එක ඉවත් කර ඇත. 
+// බොටාගේ මතකය තුළ Auto-React status එක තබා ගැනීමට (In-Memory Storage)
+if (!global.autoChannelReact) {
+    global.autoChannelReact = { enabled: false, channelJid: '', emojis: ['❤️'] };
+}
 
 export default {
     name: 'channelreact',
     category: 'owner',
-    description: 'WhatsApp නාලිකාවල (Channels) පවතින නවතම පණිවිඩ සඳහා ස්වයංක්‍රීය ප්‍රතිචාර (Auto-React) දැක්වීම.',
-    usage: '.channelreact [නාලිකා සබැඳිය] , [ප්‍රතිචාර සංකේතය] , [වාර ගණන]',
+    description: 'WhatsApp Channels සඳහා වන උපරිම මට්ටමේ ස්වයංක්‍රීය ප්‍රතිචාර පද්ධතිය.',
+    usage: '.channelreact [සබැඳිය/ක්‍රියාව] , [ඉමෝජි] , [වාර ගණන/පෝස්ට් ගණන] , [ප්‍රමාදය]',
 
     function: async (instance, message, { text, prefix, command }) => {
         
-        // 1. ප්‍රවේශ බලය පරීක්ෂා කිරීම
+        // 1. බොට් හිමිකරු පරීක්ෂාව
         if (!message.isOwner) {
-            return message.reply('⚠️ මෙම විශේෂාංගය භාවිත කිරීමේ බලය ඇත්තේ බොට් හිමිකරුට (Bot Owner) පමණි.');
+            return message.reply('⚠️ මෙම විශේෂාංගය භාවිත කළ හැක්කේ බොට් හිමිකරුට (Bot Owner) පමණි.');
         }
 
-        // 2. ආදාන දත්ත පරික්ෂා කිරීම
+        // 2. ආදාන දත්ත පරීක්ෂාව සහ උපදෙස් පැනලය
         if (!text) {
-            return message.reply(`ℹ️ මෙම විශේෂාංගය නිවැරදිව භාවිත කිරීමට පහත ආකෘතිය (Format) අනුගමනය කරන්න:\n\n*පරිශීලන ක්‍රමය:* ${prefix}${command} [Channel Link] , [Emoji] , [Count]\n*උදාහරණයක්:* ${prefix}${command} https://whatsapp.com/channel/xxxx , 🔥 , 5`);
+            return message.reply(`🔥 *Ultimate Pro Channel React පද්ධතිය* 🔥\n\n` +
+                `*⚙️ ක්‍රමවේද සහ භාවිත වන ආකාරය:*\n\n` +
+                `*1. සාමාන්‍ය ක්‍රමය (නවතම හෝ නිශ්චිත පෝස්ට් එකකට):*\n` +
+                `Format: \`${prefix}${command} [Link] , [Emoji] , [Count] , [Delay]\`\n` +
+                `Ex: \`${prefix}${command} https://whatsapp.com/channel/xxxx , 🔥 , 5 , 1.5\`\n\n` +
+                `*2. පෝස්ට් කිහිපයකට එකවර (Multi-Post Target):*\n` +
+                `අලුත්ම පෝස්ට් 3කට එකවර රියැක්ට් කිරීමට (Count එක 1 ලෙස තබා ගන්න):\n` +
+                `Ex: \`${prefix}${command} https://whatsapp.com/channel/xxxx , 👍 , 3-posts , 2\`\n\n` +
+                `*3. ස්වයංක්‍රීය ක්‍රමය (Auto-React Mode On/Off):*\n` +
+                `චැනල් එකට දාන හැම පෝස්ට් එකකටම ඔටෝ රියැක්ට් වීමට ක්‍රියාත්මක කිරීම:\n` +
+                `Ex: \`${prefix}${command} auto-on https://whatsapp.com/channel/xxxx , ❤️🔥\`\n` +
+                `Ex: \`${prefix}${command} auto-off\``);
         }
 
         let parts = text.split(',').map(p => p.trim());
+        let modeOrLink = parts[0];
+
+        // --- AUTO REACT MODE HANDLING ---
+        if (modeOrLink.toLowerCase() === 'auto-off') {
+            global.autoChannelReact.enabled = false;
+            return message.reply('🛑 ස්වයංක්‍රීය චැනල් ප්‍රතිචාර (Auto-React Mode) අක්‍රීය කරන ලදී.');
+        }
+
+        if (modeOrLink.toLowerCase().startsWith('auto-on')) {
+            let channelLink = modeOrLink.split(' ')[1];
+            let emojis = parts[1] ? Array.from(parts[1]) : ['❤️'];
+
+            if (!channelLink || !channelLink.includes('whatsapp.com/channel/')) {
+                return message.reply('❌ කරුණාකර auto-on සමඟ වලංගු චැනල් සබැඳියක් ඇතුළත් කරන්න.\nEx: `.channelreact auto-on [link] , ❤️🔥`');
+            }
+
+            try {
+                let inviteCode = channelLink.split('channel/')[1];
+                let queryResult = await instance.conn.newsletterMetadata('invite', inviteCode);
+                if (!queryResult?.id) return message.reply('❌ නාලිකාව සොයාගත නොහැකි විය.');
+
+                global.autoChannelReact = { enabled: true, channelJid: queryResult.id, emojis: emojis };
+                return message.reply(`✅ *Auto-React සක්‍රීය කරන ලදී!*\n\n*නාලිකාව:* ${queryResult.name}\n*ප්‍රතිචාර ඉමෝජි:* ${emojis.join(' ')}\n\nදැන් මෙම චැනල් එකට වැටෙන සෑම නව පෝස්ට් එකකටම බොටා ස්වයංක්‍රීයව ප්‍රතිචාර දක්වනු ඇත.`);
+            } catch (e) {
+                return message.reply(`❌ දෝෂයක් සිදු විය: ${e.message}`);
+            }
+        }
+        // ---------------------------------
+
+        // සාමාන්‍ย සහ Multi-Post ක්‍රම සඳහා දත්ත වෙන් කිරීම
         let channelLink = parts[0];
-        let emoji = parts[1] || '❤️'; 
-        let count = parseInt(parts[2]) || 1; 
+        let emojiInput = parts[1] || '❤️';
+        let countInput = parts[2] || '1';
+        let delaySec = parseFloat(parts[3]) || 1.5;
 
         if (!channelLink.includes('whatsapp.com/channel/')) {
-            return message.reply('❌ කරුණාකර වලංගු WhatsApp Channel සබැඳියක් (Link) ඇතුළත් කරන්න.');
+            return message.reply('❌ කරුණාකර වලංගු WhatsApp Channel සබැඳියක් ඇතුළත් කරන්න.');
         }
 
         try {
-            message.reply('🔄 නාලිකා දත්ත සහ නවතම පණිවිඩය (Latest Post) පරීක්ෂා කරමින් පවතිනවා. කරුණාකර රැඳී සිටින්න...');
-            
-            let inviteCode = channelLink.split('channel/')[1];
-            let queryResult = await instance.conn.newsletterMetadata('invite', inviteCode);
-            
-            if (!queryResult || !queryResult.id) {
-                return message.reply('❌ අදාළ නාලිකාව (Channel) සොයා ගැනීමට නොහැකි විය. කරුණාකර සබැඳිය නැවත පරීක්ෂා කරන්න.');
-            }
+            message.reply('🔄 පද්ධති දත්ත සහ නාලිකා ඉතිහාසය පරීක්ෂා කරමින් පවතිනවා...');
 
+            let linkParts = channelLink.split('channel/')[1].split('/');
+            let inviteCode = linkParts[0];
+            let specificPostId = linkParts[1];
+
+            let queryResult = await instance.conn.newsletterMetadata('invite', inviteCode);
+            if (!queryResult || !queryResult.id) return message.reply('❌ නාලිකාව සොයා ගැනීමට නොහැකි විය.');
             let channelJid = queryResult.id;
 
-            let messages = await instance.conn.fetchMessagesFromNewsletter({
-                jid: channelJid,
-                count: 1
-            });
+            let targetMessages = [];
+            let isMultiPost = countInput.toLowerCase().includes('posts');
+            let reactionCount = 1;
 
-            if (!messages || messages.length === 0) {
-                return message.reply('❌ මෙම නාලිකාව තුළ කිසිදු පණිවිඩයක් සොයා ගැනීමට නොහැකි විය.');
+            // පෝස්ට් ලබා ගැනීමේ තර්කය
+            if (specificPostId) {
+                targetMessages.push({ id: parseInt(specificPostId) });
+            } else if (isMultiPost) {
+                let postLimit = parseInt(countInput.split('-')[0]) || 1;
+                let fetched = await instance.conn.fetchMessagesFromNewsletter({ jid: channelJid, count: postLimit });
+                if (fetched) targetMessages = fetched;
+            } else {
+                reactionCount = parseInt(countInput) || 1;
+                let fetched = await instance.conn.fetchMessagesFromNewsletter({ jid: channelJid, count: 1 });
+                if (fetched && fetched.length > 0) targetMessages.push(fetched[0]);
             }
 
-            let latestMessage = messages[0];
-            let messageId = latestMessage.id;
+            if (targetMessages.length === 0) {
+                return message.reply('❌ පණිවිඩ කිසිවක් සොයා ගැනීමට නොහැකි විය.');
+            }
 
-            message.reply(`🚀  ක්‍රියාවලිය සාර්ථකයි!\n\n*නාලිකාව:* ${queryResult.name || 'WhatsApp Channel'}\n*ප්‍රතිචාරය:* ${emoji}\n*වාර ගණන:* ${count}\n\nස්වයංක්‍රීය ප්‍රතිචාර දැක්වීමේ ක්‍රියාවලිය දැන් ආරම්භ වේ...`);
+            let emojiList = Array.from(emojiInput);
+            let startTime = Date.now();
 
-            // JavaScript මඟින්ම ක්‍රියාත්මක වන delay function එකක් සකස් කිරීම
+            message.reply(`🚀 *ප්‍රතිචාර ක්‍රියාවලිය ආරම්භ විය*\n\n*නාලිකාව:* ${queryResult.name}\n*පෝස්ට් ගණන:* ${targetMessages.length}\n*ප්‍රමාද කාලය:* තත්පර ${delaySec}`);
+
             const customDelay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-            // 7. නියමිත වාර ගණන අනුව ප්‍රතිචාර යැවීම
-            for (let i = 0; i < count; i++) {
-                await instance.conn.sendMessage(channelJid, {
-                    react: {
-                        text: emoji,
-                        key: {
-                            remoteJid: channelJid,
-                            id: messageId,
-                            fromMe: false
+            // ප්‍රතිචාර දැක්වීමේ ප්‍රධාන ලූප් එක
+            for (let msg of targetMessages) {
+                for (let i = 0; i < reactionCount; i++) {
+                    let selectedEmoji = emojiList[Math.floor(Math.random() * emojiList.length)];
+                    
+                    await instance.conn.sendMessage(channelJid, {
+                        react: {
+                            text: selectedEmoji,
+                            key: { remoteJid: channelJid, id: msg.id, fromMe: false }
                         }
-                    }
-                });
-                
-                // තත්පර 1.5 ක ප්‍රමාදයක් තැබීම
-                await customDelay(1500); 
+                    });
+                    await customDelay(delaySec * 1000);
+                }
             }
 
-            return message.reply(`✅ ක්‍රියාවලිය සාර්ථකව අවසන් කරන ලදී!\nනවතම පණිවිඩය සඳහා ${emoji} ප්‍රතිචාර ${count} වතාවක් ලබා දී ඇත.`);
+            // සාරාංශ වාර්තාව (Log Report)
+            let endTime = Date.now();
+            let totalTime = ((endTime - startTime) / 1000).toFixed(1);
+
+            return message.reply(`✅ *ක්‍රියාවලිය සාර්ථකව නිම කරන ලදී!*\n\n*📊 සාරාංශ වාර්තාව:*\n• නාලිකාව: ${queryResult.name}\n• ප්‍රතිචාර දැක්වූ පෝස්ට් ගණන: ${targetMessages.length}\n• ගත වූ මුළු කාලය: තත්පර ${totalTime}\n• තත්ත්වය: සාර්ථකයි`);
 
         } catch (error) {
-            console.error('Channel React System Error:', error);
-            return message.reply(`❌ පද්ධතිමය දෝෂයක් (System Error) සිදු විය:\n\`${error.message || error}\``);
+            console.error('Pro Channel React Error:', error);
+            return message.reply(`❌ පද්ධතිමය දෝෂයක් සිදු විය:\n\`${error.message || error}\``);
         }
     }
 };
+
+// --- AUTO-REACT සඳහා වන අමතර කොටස (EVENT LISTENER) ---
+// මෙම කොටස ඔයාගේ බොටාගේ මැසේජ් ලැයිස්තුගත කරන ප්‍රධාන ෆයිල් එකේ (උදා: `index.js` හෝ `connection` event එක ඇතුළේ) 
+// newsletter පණිවිඩ ලැබෙන තැනට එකතු කරන්න අවශ්‍ය වේ:
+/*
+conn.ev.on('messages.upsert', async (chatUpdate) => {
+    if (global.autoChannelReact?.enabled) {
+        const msg = chatUpdate.messages[0];
+        if (msg.key.remoteJid === global.autoChannelReact.channelJid) {
+            let randomEmoji = global.autoChannelReact.emojis[Math.floor(Math.random() * global.autoChannelReact.emojis.length)];
+            await conn.sendMessage(global.autoChannelReact.channelJid, {
+                react: { text: randomEmoji, key: msg.key }
+            });
+        }
+    }
+});
+*/
