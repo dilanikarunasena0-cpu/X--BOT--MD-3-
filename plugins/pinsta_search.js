@@ -9,25 +9,28 @@ Sparky({
     desc: "Pinterest වල පින්තූර සර්ච් කර ලබාගැනීම"
 }, async ({ client, m, args }) => {
     try {
-        const query = args.join(" ");
-        if (!query) return await m.reply("❌ *මොනවගේ පොටෝ හෝ වීඩියෝ එකක්ද ඕනේ?*\n\n*භාවිතය:* `.pinsta nature wallpaper`");
+        // මෙන්න මෙතනදී args එක Array එකක්ද නැද්ද කියලා බලලා String එකක් විදියට ගන්නේ
+        const query = Array.isArray(args) ? args.join(" ") : args.toString();
+        
+        if (!query || query.trim() === "") {
+            return await m.reply("❌ *මොනවගේ පොටෝ හෝ වීඩියෝ එකක්ද ඕනේ?*\n\n*භාවිතය:* `.pinsta nature wallpaper`");
+        }
 
         await client.sendMessage(m.jid, { react: { text: "🔍", key: m.key } });
         await m.reply(`🔍 *"${query}" සඳහා Pinterest හි සෙවුම් ප්‍රතිඵල ලබාගනිමින් පවතී...*`);
 
         const apiKey = 'zan_w8lSd1pK_t79f2pa52p';
-        // සර්ච් කිරීම සඳහා API එක (මෙම API එක සර්ච් එක සඳහා සහය දක්වයි නම්)
         const apiUrl = `https://api.zanta-mini.store/api/pinterest/search?apiKey=${apiKey}&text=${encodeURIComponent(query)}`;
 
         const response = await axios.get(apiUrl);
-        const results = response.data.results; // මෙතනට එන්නේ පින්තූර ලින්ක්ස් ටිකක්
+        const results = response.data.results; 
 
         if (!results || results.length === 0) {
             await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
             return await m.reply("❌ *කණගාටුයි, එම නමින් ප්‍රතිඵල සොයාගැනීමට නොහැකි විය.*");
         }
 
-        // පින්තූර 5ක් පමණක් යැවීම
+        // පින්තූර යැවීම
         for (let i = 0; i < Math.min(results.length, 5); i++) {
             await client.sendMessage(m.jid, { 
                 image: { url: results[i] }, 
@@ -42,4 +45,3 @@ Sparky({
         await m.reply("❌ *සෙවුමේ දෝෂයක්:* " + err.message);
     }
 });
-
