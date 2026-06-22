@@ -8,37 +8,72 @@ Sparky({
     alias: ["පුවත්", "breaking", "n"],
     category: "news",
     fromMe: isPublic,
-    desc: "ලංකාවේ අලුත්ම පුවත් ලබා ගැනීම"
+    desc: "ලංකාවේ සහ ලෝකයේ අලුත්ම පුවත් ලබා ගැනීම"
 }, async ({ client, m, args }) => {
     try {
         const botName = config.BOT_INFO?.split(";")[0] || "SADEW-MINI";
-        await client.sendMessage(m.jid, { text: "📥 පුවත් යාවත්කාලීන කරමින් පවතී..." }, { quoted: m });
 
-        // විශ්වාසවන්ත Google News RSS හරහා දත්ත ලබා ගැනීම
-        const response = await axios.get("https://api.rss2json.com/v1/api.json?rss_url=https://news.google.com/rss/search?q=Sri+Lanka&hl=si&gl=LK&ceid=LK:si");
+        // Loader එකක් යැවීම
+        await client.sendMessage(m.jid, { text: "📥 NewsAPI සේවාදායකයෙන් අලුත්ම පුවත් ලබාගනිමින් පවතී..." }, { quoted: m });
 
-        const newsData = response.data?.items;
+        // ඔයාගේ API Key එක යොදාගෙන ලංකාවට අදාළ පුවත් ලබාගැනීම
+        const apiKey = "15d4000cd98b4ec59387a8bbb1bb5372";
+        const response = await axios.get(`https://newsapi.org/v2/top-headlines?q=Sri+Lanka&apiKey=${apiKey}`, {
+            timeout: 10000
+        });
 
-        if (!newsData || newsData.length === 0) {
-            return await m.reply("❌ මේ වෙලාවේ පුවත් ලබාගැනීමට නොහැකි විය.");
+        const articles = response.data?.articles;
+
+        if (!articles || articles.length === 0) {
+            return await m.reply("❌ මේ වෙලාවේ කිසිදු අලුත් පුවතක් සොයාගත නොහැකි විය.");
         }
 
-        const topNews = newsData.slice(0, 5);
+        // මුල්ම පුවත් 5ක් වෙන් කරගැනීම
+        const topNews = articles.slice(0, 5);
         
-        let menuStatus = `╭───────────────◉\n│ *📰 ${botName} NEWS HUB*\n├───────────────◉\n`;
-        topNews.forEach((item, index) => {
-            menuStatus += `│ *${index + 1}️⃣ ${item.title.substring(0, 40)}...*\n`;
-        });
-        menuStatus += `╰────────────────◉\n\n*පුවතක අංකය (1-5) reply කරන්න.*`;
+        let menuStatus = `
+╭───────────────◉
+│ *📰 ${botName} NEWS HUB*
+├───────────────◉
+│✨ NewsAPI Official Service
+├───────────────◉\n`;
 
-        const sentMsg = await client.sendMessage(m.jid, {
-            image: { url: topNews[0].thumbnail || "https://res.cloudinary.com/dqlh378fb/image/upload/v1780800370/zanta_media_uploads/y2qrw8srsw1v4dsu5wxv.jpg" },
-            caption: menuStatus
+        topNews.forEach((item, index) => {
+            menuStatus += `│ *${index + 1}️⃣ ${item.title.substring(0, 55)}...*\n`;
+        });
+
+        menuStatus += `
+╰────────────────◉
+> ${botName} WhatsApp Bot
+
+*Reply with (1 - 5):*
+ඔබට සම්පූර්ණ විස්තරය කියවීමට අවශ්‍ය පුවතේ අංකය Reply කරන්න. 🧧
+`;
+
+        // පළමු පුවතේ රූපය (තිබේ නම්) හෝ default රූපය යැවීම
+        const imageToShow = topNews[0].urlToImage || "https://res.cloudinary.com/dqlh378fb/image/upload/v1780800370/zanta_media_uploads/y2qrw8srsw1v4dsu5wxv.jpg";
+
+        await client.sendMessage(m.jid, {
+            image: { url: imageToShow },
+            caption: menuStatus,
+            contextInfo: {
+                mentionedJid: [m.sender],
+                forwardingScore: 1000,
+                isForwarded: true
+            }
         }, { quoted: m });
 
-        // Reply ලබා ගැනීම
-        const filter = (msg) => msg.key.remoteJid === m.jid && ["1","2","3","4","5"].includes(msg.message?.conversation || msg.message?.extendedTextMessage?.text || "");
-        
+        // User Reply Filter
+        const filter = (msg) => {
+            if (!msg?.message) return false;
+            if (msg.key.remoteJid !== m.jid) return false;
+            if (msg.key.fromMe) return false;
+
+            const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+            return ["1", "2", "3", "4", "5"].includes(text.trim());
+        };
+
+        // තත්පර 45ක් පරිශීලකයාගේ පිළිතුර සඳහා රැක සිටීම
         const replyMsg = await new Promise((resolve) => {
             const handler = (chatUpdate) => {
                 const msg = chatUpdate.messages?.[0];
@@ -47,18 +82,56 @@ Sparky({
                     resolve(msg);
                 }
             };
+
             client.ev.on("messages.upsert", handler);
-            setTimeout(() => { client.ev.off("messages.upsert", handler); resolve(null); }, 30000);
+
+            setTimeout(() => {
+                client.ev.off("messages.upsert", handler);
+                resolve(null);
+            }, 45000); 
         });
 
-        if (replyMsg) {
-            const idx = parseInt(replyMsg.message.conversation || replyMsg.message.extendedTextMessage?.text) - 1;
-            const news = topNews[idx];
-            await client.sendMessage(m.jid, { text: `📰 *${news.title}*\n\n${news.description}\n\n🔗 ${news.link}` }, { quoted: replyMsg });
+        if (!replyMsg) return;
+
+        const selectedIndex = parseInt((
+            replyMsg.message.conversation ||
+            replyMsg.message.extendedTextMessage?.text ||
+            ""
+        ).trim()) - 1;
+
+        const selectedNews = topNews[selectedIndex];
+
+        // සම්පූර්ණ විස්තරය සකස් කිරීම
+        const detailedReport = `
+📰 *${selectedNews.title}*
+
+📌 *විස්තරය:* 
+${selectedNews.description || selectedNews.content || "සම්පූර්ණ විස්තරය ලබාගත නොහැක."}
+
+✍️ *මූලාශ්‍රය:* ${selectedNews.source?.name || "NewsAPI"}
+📅 *ප්‍රකාශිත දිනය:* ${new Date(selectedNews.publishedAt).toLocaleDateString()}
+
+🔗 *සම්පූර්ණ පුවත කියවන්න ලින්ක් එක:*
+${selectedNews.url}
+
+_Generated by ${botName} News Service_
+`;
+
+        // පුවතේ පින්තූරයක් තිබේ නම් එය සමඟ විස්තරය යැවීම, නැතහොත් text එකක් ලෙස යැවීම
+        if (selectedNews.urlToImage) {
+            await client.sendMessage(m.jid, {
+                image: { url: selectedNews.urlToImage },
+                caption: detailedReport
+            }, { quoted: replyMsg });
+        } else {
+            await client.sendMessage(m.jid, {
+                text: detailedReport,
+                contextInfo: { isForwarded: true }
+            }, { quoted: replyMsg });
         }
 
     } catch (err) {
-        await m.reply("❌ පුවත් සේවාව තාවකාලිකව විසන්ධි වී ඇත.");
+        console.error("❌ NewsAPI cmd error:", err);
+        await m.reply("❌ පුවත් සේවාවේ තාක්ෂණික දෝෂයකි: " + err.message);
     }
 });
-
