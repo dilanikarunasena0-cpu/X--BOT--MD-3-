@@ -12,7 +12,7 @@ const lang = getString('download');
 
 
 Sparky({
-  name: "yts",
+  name: "update",
   fromMe: isPublic,
   category: "youtube",
   desc: "search in youtube"
@@ -29,7 +29,7 @@ Sparky({
 });
 
 Sparky({
-  name: "ytv",
+  name: "update",
   fromMe: isPublic,
   category: "youtube",
   desc: "Find details of a song"
@@ -52,7 +52,7 @@ Sparky({
   });
 
 Sparky({
-  name: "yta",
+  name: "update",
   fromMe: isPublic,
   category: "youtube",
   desc: "Find details of a song"
@@ -75,7 +75,7 @@ Sparky({
   });
 
 Sparky({
-  name: "play",
+  name: "update",
   fromMe: isPublic,
   category: "youtube",
   desc: "play a song"
@@ -100,7 +100,7 @@ Sparky({
   });
 
 Sparky({
-  name: "song",
+  name: "update",
   fromMe: isPublic,
   category: "youtube",
   desc: "play a song"
@@ -123,3 +123,4 @@ Sparky({
       m.reply(error);
     }
   });
+

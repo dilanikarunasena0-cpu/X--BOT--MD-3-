@@ -31,7 +31,7 @@
     "STICKER_DATA": {
       "description": "Set the Sticker Pack name and Author name (Format: PackName;AuthorName).",
       "required": false,
-      "value": "X BOT MD;ASWIN SPARKY"
+      "value": "❖Ƭʜᴇ 𝐗-𝐊𝐀𝐃𝐈𝐘𝐀-𝐌𝐃 💎;Isanka"
     },
     "BOT_INFO": {
       "description": "Customize bot menu information (Format: BotName;OwnerName;ImageURL).",
@@ -40,8 +40,8 @@
     },
     "ALWAYS_ONLINE": {
       "description": "Set to 'true' to keep bot always online, or 'false' to stay offline until a message is received.",
-      "required": false,
-      "value": "false"
+      "required": true,
+      "value": "true"
     },
     "WORK_TYPE": {
       "description": "Set bot mode: 'public' to allow everyone to use, 'private' to allow only owner/sudo users.",
