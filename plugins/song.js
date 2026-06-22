@@ -1,8 +1,10 @@
 const { Sparky, isPublic } = require("../lib");
 const axios = require("axios");
 
-// 🌐 Professional Free Public API Endpoint
-const API_BASE_URL = "https://api.giftedtech.my.id/api";
+// 🌐 Zanta-Mini Store API Configuration
+const API_KEY = "zan_w8lSd1pK_t79f2pa52p";
+const BASE_URL = "https://api.zanta-mini.store/api/ytdl";
+const SEARCH_API = "https://api.giftedtech.my.id/api/search/youtube"; // Search සඳහා නොමිලේ දෙන විශ්වාසවන්ත සර්වර් එකක්
 
 /**
  * 📱 YouTube URL Extraction Utility
@@ -14,111 +16,106 @@ function extractYoutubeUrl(text) {
 }
 
 /**
- * 🎶 Professional Core Audio Downloader Function
+ * 🚀 Core Downloader Engine (Handles both Audio and Video)
  */
-async function coreAudioDownloader({ m, client, args }) {
-    
-    // 🛡️ Fail-Safe Text Message Sender
+async function downloadMedia(m, client, args, isVideo = false) {
     const sendMsg = async (text) => {
         try {
-            if (typeof m.reply === "function") {
-                await m.reply(text);
-            } else {
-                await client.sendMessage(m.jid, { text }, { quoted: m });
-            }
+            if (typeof m.reply === "function") await m.reply(text);
+            else await client.sendMessage(m.jid, { text }, { quoted: m });
         } catch (e) {
-            console.error("[SADEW-MD] Reply failed:", e.message);
+            console.error("[X-BOT-MD] Message failed:", e.message);
         }
     };
 
     try {
-        // Input text එක නිවැරදිව ලබා ගැනීම
         let textInput = Array.isArray(args) ? args.join(" ").trim() : String(args || "").trim();
         textInput = textInput || m.quoted?.text || "";
 
         if (!textInput) {
-            return await sendMsg("🎵 *SADEW-MD MUSIC*\n\nකරුණාකර සින්දුවක නමක් හෝ YouTube ලින්ක් එකක් ලබා දෙන්න.\n\n💡 _උදා: .song master sir_");
+            return await sendMsg(`🎵 *X-BOT-MD YOUTUBE SYSTEM*\n\nකරුණාකර සින්දුවක නමක් හෝ YouTube ලින්ක් එකක් ලබා දෙන්න.\n\n💡 _උදා: .song master sir_ හෝ _.video master sir_`);
         }
 
-        // Reaction: Searching 🔎
         try { if (typeof m.react === "function") await m.react("🔎"); } catch {}
 
         const checkedUrl = extractYoutubeUrl(textInput);
         let youtubeUrl = null;
-        let songTitle = "Sadew-MD Audio";
+        let mediaTitle = isVideo ? "X-BOT-MD Video" : "X-BOT-MD Audio";
 
-        // 1. RESOLVING INPUT (LINK OR SEARCH)
+        // 1. YouTube Link එකක්ද නැත්නම් Search එකක්ද කියා බැලීම
         if (checkedUrl) {
             youtubeUrl = checkedUrl;
-            await sendMsg("🔗 _YouTube Link Detected. Fetching details..._");
+            await sendMsg("🔗 _YouTube Link Detected. Processing URL..._");
         } else {
             await sendMsg(`🔍 _Searching for_ *"${textInput}"* _on YouTube..._`);
-            
             try {
-                const searchRes = await axios.get(`${API_BASE_URL}/search/youtube?q=${encodeURIComponent(textInput)}`, { timeout: 15000 });
-                
+                const searchRes = await axios.get(`${SEARCH_API}?q=${encodeURIComponent(textInput)}`, { timeout: 15000 });
                 if (searchRes.data?.status === 200 && searchRes.data?.result?.[0]) {
-                    const bestResult = searchRes.data.result[0];
-                    youtubeUrl = bestResult.url;
-                    songTitle = bestResult.title || "YouTube Audio";
+                    youtubeUrl = searchRes.data.result[0].url;
+                    mediaTitle = searchRes.data.result[0].title || mediaTitle;
                 }
             } catch (searchErr) {
-                console.error("[SADEW-MD] YT Search Error:", searchErr.message);
+                console.error("[X-BOT-MD] Search Error:", searchErr.message);
             }
         }
 
-        // ලින්ක් එකක් සොයා ගැනීමට නොහැකි වුවහොත්
         if (!youtubeUrl) {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-            return await sendMsg("❌ *Error:* සින්දුව සොයා ගැනීමට නොහැකි විය. කරුණාකර නම නිවැරදිව ටයිප් කරන්න.");
+            return await sendMsg("❌ *Error:* සොයා ගැනීමට නොහැකි විය. කරුණාකර නම නිවැරදිව ටයිප් කරන්න.");
         }
 
-        // Reaction: Downloading 📥
+        // 2. Fetching Download Link from Zanta API
         try { if (typeof m.react === "function") await m.react("📥"); } catch {}
-        await sendMsg("📥 _Extracting High-Quality MP3 audio stream..._");
+        await sendMsg(`📥 _Downloading ${isVideo ? "Video (360p)" : "Audio (MP3)"} from Zanta server..._`);
 
-        // 2. FETCHING AUDIO DOWNLOAD URL
-        let audioDownloadUrl = null;
-        let finalTitle = songTitle;
+        const type = isVideo ? "mp4" : "mp3";
+        const quality = isVideo ? "360" : "128"; // Zanta API එකට අනුව Audio සඳහා 128 හෝ Video සඳහා 360/720
+        
+        const apiUrl = `${BASE_URL}?apiKey=${API_KEY}&url=${encodeURIComponent(youtubeUrl)}&type=${type}&quality=${quality}`;
+        const res = await axios.get(apiUrl, { timeout: 40000 });
 
-        try {
-            const downloadRes = await axios.get(`${API_BASE_URL}/download/dlmp3?url=${encodeURIComponent(youtubeUrl)}`, { timeout: 30000 });
+        // Zanta API ප්‍රතිචාරය (Response) පරීක්ෂා කිරීම
+        let downloadUrl = res.data?.result?.downloadUrl || res.data?.downloadUrl || res.data?.result?.url;
+        if (res.data?.result?.title) mediaTitle = res.data.result.title;
 
-            if (downloadRes.data?.status === 200 && downloadRes.data?.result?.download_url) {
-                audioDownloadUrl = downloadRes.data.result.download_url;
-                finalTitle = downloadRes.data.result.title || finalTitle;
-            }
-        } catch (dlErr) {
-            console.error("[SADEW-MD] YT Download Error:", dlErr.message);
-        }
-
-        if (!audioDownloadUrl) {
+        if (!downloadUrl) {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-            return await sendMsg("❌ *Error:* සේවාදායකයේ බිඳවැටීමක් හේතුවෙන් ඕඩියෝ එක ලබා ගැනීමට නොහැකි විය. පසුව උත්සාහ කරන්න.");
+            return await sendMsg("❌ *Error:* API එකෙන් බාගත කිරීමේ ලින්ක් එක ලබා දීමට අපොහොසත් විය.");
         }
 
-        // File name එක පිරිසිදු කිරීම (Special characters ඉවත් කිරීම)
-        const cleanFileName = finalTitle.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60) + ".mp3";
+        const cleanFileName = mediaTitle.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60) + `.${type}`;
 
-        // 3. SENDING AUDIO & INFOGRAPHICS
-        await sendMsg(`✨ *👑 𝙎𝘼𝘿𝙀𝙒-𝙓-𝙈𝘿 𝙈𝙐𝙎𝙄𝘾 👑* ✨\n\n📌 *Title:* ${finalTitle}\n💿 *Format:* MP3 High Quality\n🚀 *Status:* Delivering to your chat...`);
+        // 3. Sending the Media File to WhatsApp
+        await sendMsg(`✨ *👑 𝙓-𝘽𝙊𝙏-𝙈𝘿 𝙔𝙊𝙐𝙏𝙐𝘽𝙀 👑* ✨\n\n📌 *Title:* ${mediaTitle}\n💿 *Type:* ${type.toUpperCase()}\n🚀 *Status:* Uploading to WhatsApp...`);
 
-        await client.sendMessage(
-            m.jid,
-            {
-                audio: { url: audioDownloadUrl },
-                mimetype: "audio/mpeg", 
-                ptt: false, // Voice note එකක් ලෙස නොව සින්දුවක් ලෙසම යැවීමට
-                fileName: cleanFileName
-            },
-            { quoted: m }
-        );
+        if (isVideo) {
+            await client.sendMessage(
+                m.jid,
+                {
+                    video: { url: downloadUrl },
+                    mimetype: "video/mp4",
+                    caption: `*📌 ${mediaTitle}*\n\n_Powered by X-Bot-MD_`,
+                    fileName: cleanFileName
+                },
+                { quoted: m }
+            );
+        } else {
+            await client.sendMessage(
+                m.jid,
+                {
+                    audio: { url: downloadUrl },
+                    mimetype: "audio/mpeg",
+                    ptt: false,
+                    fileName: cleanFileName
+                },
+                { quoted: m }
+            );
+        }
 
-        // Reaction: Success ✅
         try { if (typeof m.react === "function") await m.react("✅"); } catch {}
 
     } catch (globalError) {
-        console.error("[SADEW-MD] CRITICAL ERROR:", globalError);
+        console.error("[X-BOT-MD] CRITICAL ERROR:", globalError);
         try { if (typeof m.react === "function") await m.react("❌"); } catch {}
         await sendMsg(`❌ *Internal Plugin Error:* ${globalError.message}`);
     }
@@ -129,20 +126,20 @@ Sparky({
     name: "song",
     fromMe: isPublic,
     category: "youtube",
-    desc: "Search and download professional MP3 audio via name or link."
-}, coreAudioDownloader);
+    desc: "Download YouTube Audio via Zanta API."
+}, async ({ m, client, args }) => await downloadMedia(m, client, args, false));
 
 Sparky({
     name: "music",
     fromMe: isPublic,
     category: "youtube",
-    desc: "Search and download professional MP3 audio via name or link."
-}, coreAudioDownloader);
+    desc: "Download YouTube Audio via Zanta API."
+}, async ({ m, client, args }) => await downloadMedia(m, client, args, false));
 
 Sparky({
-    name: "yta",
+    name: "video",
     fromMe: isPublic,
     category: "youtube",
-    desc: "Download YouTube audio via link directly."
-}, coreAudioDownloader);
+    desc: "Download YouTube Video via Zanta API."
+}, async ({ m, client, args }) => await downloadMedia(m, client, args, true));
 
