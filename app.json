@@ -7,7 +7,7 @@
   "stack": "container",
   "env": {
     "SESSION_ID": {
-      "description": "A-S-W-I-N-S-P-A-R-K-Y:bc8e824e5ea2c82ee0ce81fb04d6b43b",
+      "description": "A-S-W-I-N-S-P-A-R-K-Y:c0d3c18f06ab9a5167229268bd326012",
       "required": true
     },
     "HANDLERS": {
@@ -18,7 +18,7 @@
     "SUDO": {
       "description": "Enter owner numbers with country code (without +), separated by commas for multiple owners. Example: 919876543210,917012345678",
       "required": true,
-      "value": "94765901096"
+      "value": "94760610432"
     },
     "HEROKU_APP_NAME": {
       "description": "Enter the exact name of your Heroku app (must match the app name you created).",
