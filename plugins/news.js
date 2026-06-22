@@ -17,16 +17,17 @@ Sparky({
         // Loader එකක් යැවීම
         await client.sendMessage(m.jid, { text: "📥 අලුත්ම පුවත් සේවාදායකයෙන් ලබාගනිමින් පවතී..." }, { quoted: m });
 
-        // Hiru News JSON API එක භාවිතයෙන් පුවත් ලබා ගැනීම
-        const response = await axios.get("https://www.hirunews.lk/api/sinhala-news.php", {
+        // 403 බ්ලොක් නොවන public ස්ථාවර News API එකක් බාවිතා කිරීම
+        const response = await axios.get("https://news-api-lk.vercel.app/news/adaderana", {
             timeout: 10000,
             headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                "Accept": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
         });
 
-        // නිවුස් ඇරේ එක තෝරා ගැනීම (API response එක අනුව මෙය වෙනස් විය හැක, සාමාන්‍යයෙන් response.data හෝ response.data.articles වේ)
-        const newsData = response.data?.news || response.data;
+        // API එකෙන් එන news array එක තෝරා ගැනීම
+        const newsData = response.data?.news || response.data?.articles || response.data;
 
         if (!newsData || !Array.isArray(newsData) || newsData.length === 0) {
             return await m.reply("❌ මේ වෙලාවේ පුවත් ලබාගැනීමට නොහැකි විය. පසුව උත්සාහ කරන්න.");
@@ -43,7 +44,6 @@ Sparky({
 ├───────────────◉\n`;
 
         topNews.forEach((item, index) => {
-            // හිරු නිවුස් API එකේ සාමාන්‍ยයෙන් සිරස්තලය එන්නේ item.title හෝ item.heading කියන key එකෙන්
             const title = item.title || item.heading || "පුවත් සිරස්තලය ලබාගත නොහැක";
             menuStatus += `│ *${index + 1}️⃣ ${title.trim()}*\n`;
         });
@@ -108,8 +108,8 @@ Sparky({
 
         const selectedNews = topNews[selectedIndex];
         const newsTitle = selectedNews.title || selectedNews.heading || "";
-        const newsDescription = selectedNews.description || selectedNews.paragraph || selectedNews.lead || "සම්පූර්ණ විස්තරය ලබාගත නොහැක.";
-        const newsLink = selectedNews.link || selectedNews.url || `https://www.hirunews.lk`;
+        const newsDescription = selectedNews.description || selectedNews.paragraph || selectedNews.desc || selectedNews.content || "සම්පූර්ණ විස්තරය ලබාගත නොහැක.";
+        const newsLink = selectedNews.link || selectedNews.url || `http://sinhala.adaderana.lk`;
 
         // තෝරාගත් නිවුස් එකේ සම්පූර්ණ විස්තරය සකස් කිරීම
         const detailedReport = `
