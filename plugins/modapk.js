@@ -4,6 +4,16 @@ const config = require("../config");
 
 global.modapk_sessions = global.modapk_sessions || {};
 
+// URL එකක් කෙටි කරගැනීම සඳහා වන සරල Function එකක්
+async function shortUrl(longUrl) {
+    try {
+        const res = await axios.get(`https://is.gd/create.php?format=json&url=${encodeURIComponent(longUrl)}`);
+        return res.data.shorturl || longUrl;
+    } catch {
+        return longUrl; // මොකක් හරි අවුලක් වුනොත් ඔරිජිනල් ලින්ක් එකම දෙනවා
+    }
+}
+
 Sparky({
     name: "modapk",
     alias: ["apkmod", "hackapk"],
@@ -23,7 +33,7 @@ Sparky({
         if (!inputQuery && m.quoted && m.quoted.text) inputQuery = m.quoted.text.trim();
 
         // -------------------------------------------------------------
-        // APK එක බාගත කරගන්නා කොටස (.modapk file <number>)
+        // APK එක ලබාගන්නා කොටස (.modapk file <number>)
         // -------------------------------------------------------------
         if (inputQuery.toLowerCase().startsWith("file")) {
             const numIndex = parseInt(inputQuery.replace(/file/i, "").trim()) - 1;
@@ -31,7 +41,7 @@ Sparky({
 
             if (!session || !session.links || !session.links[numIndex]) {
                 await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
-                return await m.reply("❌ කරුණාකර ප්‍රථමයෙන් ඇප් එකක් සර්ච් කර ලබාගත් ලැයිස්තුවේ ඇති වලංගු අංකයක් ලබාදෙන්න.");
+                return await m.reply("❌ කරුණාකර ප්‍රථමයෙන් ඇප් එකක් සර්ච් කර ලබාගත් ලැයිස්තුවේ ඇති වලංගು අංකයක් ලබාදෙන්න.");
             }
 
             const selectedApp = session.links[numIndex];
@@ -42,37 +52,31 @@ Sparky({
                 return await m.reply("❌ මෙම ඇප් එක සඳහා බාගත කිරීමේ මූලාශ්‍ර ලින්ක් එකක් සොයාගත නොහැකි විය.");
             }
 
+            // ඔයාගේ API ඩවුන්ලෝඩ් එන්ඩ්පොයින්ට් එක
             const downloadApiUrl = `https://api.zanta-mini.store/api/modapk/dl?apiKey=${apiKey}&url=${encodeURIComponent(targetUrl)}`;
 
-            await client.sendMessage(m.jid, { react: { text: "📥", key: m.key } });
-            await m.reply(`⏳ *ඔබ තෝරාගත් "${selectedApp.title || 'App'}" (Large File) APK එක සර්වර් එක හරහා සෘජුවම WhatsApp වෙත Stream වෙමින් පවතී. කරුණාකර රැඳී සිටින්න...*`);
+            await client.sendMessage(m.jid, { react: { text: "🔗", key: m.key } });
+            await m.reply(`⏳ *ඔබ තෝරාගත් "${selectedApp.title || 'App'}" සඳහා සෘජු බාගත කිරීමේ කෙටි ලින්ක් එකක් සකසමින් පවතී...*`);
 
-            try {
-                // [FIX] - RAM එක පිරීම වැලැක්වීමට arraybuffer වෙනුවට stream එකක් ලෙස දත්ත ලබාගැනීම
-                const responseStream = await axios({
-                    method: 'get',
-                    url: downloadApiUrl,
-                    responseType: 'stream', // Stream එකක් ලෙස දත්ත ලබාගන්නවා
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                    }
-                });
+            // [BEST FIX] - සර්වර් එක ක්‍රෑෂ් කරගන්නේ නැතුව, ලින්ක් එක කෙටි කරලා යූසර්ට දෙනවා කෙලින්ම බාගන්න
+            const shortDownloadLink = await shortUrl(downloadApiUrl);
 
-                // කෙලින්ම Stream එක WhatsApp document එකට Pass කිරීම (No RAM issues, No 0.3KB bugs)
-                await client.sendMessage(m.jid, {
-                    document: responseStream.data, 
-                    mimetype: 'application/vnd.android.package-archive',
-                    fileName: `${(selectedApp.title || "ModApp").replace(/[^a-zA-Z0-9]/g, "_")}_X_KADIYA.apk`,
-                    caption: `📦 *${selectedApp.title || 'Mod App'}* Mod APK\n\n> Powered by ${botName}`
-                }, { quoted: m });
-                
-                await client.sendMessage(m.jid, { react: { text: "✅", key: m.key } });
-                return;
-            } catch (dlErr) {
-                console.error("APK Stream upload error:", dlErr.message);
-                await client.sendMessage(m.jid, { react: { text: "❌", key: m.key } });
-                return await m.reply(`❌ *WhatsApp හරහා ෆයිල් එක එවීමට නොහැකි විය!* (මෙය සර්වර් එකෙහි ඇති බාධාවක් විය හැක).\n\n🔗 *නමුත් ඔබට මෙම ලින්ක් එකෙන් කෙලින්ම බාගත කරගත හැක:*\n${downloadApiUrl}`);
-            }
+            const downloadSuccessMsg = `
+📦 *${selectedApp.title || 'Mod App'}* Mod APK
+
+ℹ️ *Size:* ${selectedApp.size || 'N/A'}
+📌 *Version:* ${selectedApp.version || 'N/A'}
+
+🚀 *සර්වර් බාධාවන් මඟහැරීම සඳහා ඔබගේ සෘජු බාගත කිරීමේ ලින්ක් එක සූදානම් කර ඇත!* 
+
+👇 *පහත ලින්ක් එක එක පාරක් ක්ලික් කර බ්‍රවුසර් එක හරහා ඉතාම වේගයෙන් APK එක ඩවුන්ලෝඩ් කරගන්න:*
+🔗 ${shortDownloadLink}
+
+> Powered by ${botName}
+`;
+            
+            await client.sendMessage(m.jid, { react: { text: "✅", key: m.key } });
+            return await m.reply(downloadSuccessMsg);
         }
 
         // -------------------------------------------------------------
@@ -148,4 +152,3 @@ ${apkText}
         await m.reply("❌ *Mod APK සෙවීමේදී දෝෂයක් ඇතිවිය:* " + err.message);
     }
 });
-
