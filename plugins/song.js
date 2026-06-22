@@ -5,9 +5,6 @@ const axios = require("axios");
 const API_KEY = "zan_w8lSd1pK_t79f2pa52p";
 const BASE_URL = "https://api.zanta-mini.store/api/ytdl";
 
-// 🌐 100% Working Alternative Search API (No Token Needed)
-const BACKUP_SEARCH_API = "https://bk9.fun/search/youtube?q=";
-
 /**
  * 📱 YouTube URL Extraction Utility
  */
@@ -18,7 +15,7 @@ function extractYoutubeUrl(text) {
 }
 
 /**
- * 🚀 Core Downloader Engine
+ * 🚀 Core Downloader Engine (Built-in Search + Zanta Download)
  */
 async function downloadMedia(m, client, args, isVideo = false) {
     const sendMsg = async (text) => {
@@ -44,7 +41,7 @@ async function downloadMedia(m, client, args, isVideo = false) {
         let youtubeUrl = null;
         let mediaTitle = isVideo ? "X-BOT-MD Video" : "X-BOT-MD Audio";
 
-        // 1. RESOLVING INPUT (LINK OR SEARCH)
+        // 1. RESOLVING INPUT (LINK OR BUILT-IN SEARCH)
         if (checkedUrl) {
             youtubeUrl = checkedUrl;
             await sendMsg("🔗 _YouTube Link Detected. Processing URL..._");
@@ -52,17 +49,29 @@ async function downloadMedia(m, client, args, isVideo = false) {
             await sendMsg(`🔍 _Searching for_ *"${textInput}"* _on YouTube..._`);
             
             try {
-                // සින්දුවේ නම හරහා YouTube ලින්ක් එක සෙවීම
-                const searchRes = await axios.get(`${BACKUP_SEARCH_API}${encodeURIComponent(textInput)}`, { timeout: 15000 });
+                // කිසිම API එකක් නැතුව බොට් ඇතුලෙන්ම සෙවීමට yt-search භාවිතය
+                const yts = require("yt-search");
+                const searchResult = await yts(textInput);
                 
-                if (searchRes.data?.status === true && searchRes.data?.BK9?.[0]) {
-                    const firstResult = searchRes.data.BK9[0];
+                if (searchResult && searchResult.videos.length > 0) {
+                    const firstResult = searchResult.videos[0];
                     youtubeUrl = firstResult.url;
                     mediaTitle = firstResult.title || mediaTitle;
-                    console.log("[X-BOT-MD] Found YouTube URL:", youtubeUrl);
+                    console.log("[X-BOT-MD] Internal Search Success:", youtubeUrl);
                 }
             } catch (searchErr) {
-                console.error("[X-BOT-MD] Search Engine Error:", searchErr.message);
+                console.error("[X-BOT-MD] Internal Search Library Error:", searchErr.message);
+                
+                // Backup Method: yt-search නැත්නම් සෘජුවම සෙවිය හැකි පොදු ලින්ක් එකක්
+                try {
+                    const backupRes = await axios.get(`https://api.giftedtech.my.id/api/search/youtube?q=${encodeURIComponent(textInput)}`, { timeout: 10000 });
+                    if (backupRes.data?.status === 200 && backupRes.data?.result?.[0]) {
+                        youtubeUrl = backupRes.data.result[0].url;
+                        mediaTitle = backupRes.data.result[0].title || mediaTitle;
+                    }
+                } catch (err) {
+                    console.error("[X-BOT-MD] All Search Methods Failed");
+                }
             }
         }
 
@@ -91,7 +100,7 @@ async function downloadMedia(m, client, args, isVideo = false) {
 
         if (!downloadUrl) {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-            return await sendMsg("❌ *Zanta API Error:* සේවාදායකයෙන් බාගත කිරීමේ ලින්ක් එක ලබා දීමට අපොහොසත් විය. (API එකේ ගැටලුවකි)");
+            return await sendMsg("❌ *Zanta API Error:* සේවාදායකයෙන් බාගත කිරීමේ ලින්ක් එක ලබා දීමට අපොහොසත් විය.");
         }
 
         const cleanFileName = mediaTitle.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60) + `.${type}`;
@@ -130,7 +139,7 @@ async function downloadMedia(m, client, args, isVideo = false) {
         try { if (typeof m.react === "function") await m.react("❌"); } catch {}
         
         if (globalError.response?.status === 500) {
-            await sendMsg("❌ *Zanta API Error (500):* Zanta API සර්වර් එකේ බිඳවැටීමක්. කරුණාකර වෙනත් සින්දුවක් උත්සාහ කරන්න හෝ API Key එක පරීක්ෂා කරන්න.");
+            await sendMsg("❌ *Zanta API Error (500):* Zanta API සර්වර් එකේ බිඳවැටීමක්. පසුව උත්සාහ කරන්න.");
         } else {
             await sendMsg(`❌ *Internal Plugin Error:* ${globalError.message}`);
         }
