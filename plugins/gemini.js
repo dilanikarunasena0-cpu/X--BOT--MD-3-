@@ -6,7 +6,7 @@ const API_TOKEN = "07CRv4";
 const GEMINI_API_URL = "https://whiteshadow-x-api.onrender.com/api/ai/gemini";
 
 /**
- * 🤖 Professional Gemini AI Chat Plugin (Clean Text Output Fixed)
+ * 🤖 Professional Gemini AI Chat Plugin (Type Error Fixed)
  */
 Sparky({
     name: "gemini",
@@ -44,41 +44,42 @@ Sparky({
         const response = await axios.get(`${GEMINI_API_URL}?q=${encodeURIComponent(query)}&apitoken=${API_TOKEN}`, { timeout: 30000 });
 
         let rawData = response.data;
-        let aiResult = "";
+        let extractedOutput = "";
 
-        // 1. JSON පවතිනවාද කියා බලා එය Parse කිරීම
+        // 1. JSON පවතිනවාද කියා බලා එය නිවැරදිව Parse කිරීම
         try {
-            // සමහරවිට ප්‍රතිචාරය දැනටමත් Object එකක් විය හැක, නැතහොත් String එකක් විය හැක
             let parsedData = typeof rawData === "string" ? JSON.parse(rawData) : rawData;
             
-            // API එකෙන් එන දත්ත වල හැඩය අනුව 'response' කොටස වෙන් කර ගැනීම
-            if (parsedData.response) {
-                aiResult = parsedData.response;
-            } else if (parsedData.result) {
-                aiResult = parsedData.result;
-            } else if (parsedData.data) {
-                aiResult = parsedData.data;
+            if (parsedData && typeof parsedData === "object") {
+                extractedOutput = parsedData.response || parsedData.result || parsedData.data || parsedData;
+                
+                // යම් හෙයකින් extractedOutput එක තවමත් Object එකක් නම් එය String එකක් කර ගැනීම
+                if (typeof extractedOutput === "object") {
+                    extractedOutput = extractedOutput.text || extractedOutput.msg || JSON.stringify(extractedOutput);
+                }
             } else {
-                aiResult = typeof parsedData === "object" ? JSON.stringify(parsedData) : String(parsedData);
+                extractedOutput = rawData;
             }
         } catch (jsonErr) {
-            // String එකක් ලෙස ආවොත් සෘජුවම ලබා ගැනීම
-            aiResult = String(rawData);
+            extractedOutput = rawData;
         }
 
-        // 2. WHATSAPP සඳහා පෙළ පිරිසිදු කිරීම (Clean & Format Text)
+        // 2. අනිවාර්යයෙන්ම String එකක් බවට හැරවීම (.replace error එක වැළැක්වීමට)
+        let aiResult = String(extractedOutput || "").trim();
+
+        // 3. WHATSAPP සඳහා පෙළ පිරිසිදු කිරීම (Clean & Format Text)
         if (aiResult) {
-            // LaTeX / Math සංකේත ඉවත් කිරීම (උදා: $8,848.86\text{ m}$ -> 8,848.86 m)
+            // LaTeX / Math සංකේත ඉවත් කිරීම
             aiResult = aiResult.replace(/\$[\s\S]*? text\{([\s\S]*?)\}\$/g, '$1');
             aiResult = aiResult.replace(/\$/g, '');
             
             // Markdown Tables වල ඇති අමතර ඉරි කැබලි පිරිසිදු කිරීම
-            aiResult = aiResult.replace(/\|?\s*:?-+\s*:?\s*\|/g, ''); // Removes | :--- |
-            aiResult = aiResult.replace(/\|/g, ' 🔹 '); // Replaces | with emoji for cleanliness
+            aiResult = aiResult.replace(/\|?\s*:?-+\s*:?\s*\|/g, ''); 
+            aiResult = aiResult.replace(/\|/g, ' 🔹 '); 
         }
 
         // පිළිතුරක් නොමැති නම්
-        if (!aiResult || aiResult.trim() === "") {
+        if (!aiResult || aiResult === "") {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
             return await sendMsg("❌ *AI Error:* සේවාදායකයෙන් නිසි පිළිතුරක් ලබා ගැනීමට නොහැකි විය. පසුව උත්සාහ කරන්න.");
         }
@@ -86,7 +87,7 @@ Sparky({
         // Success Reaction & Sending Reply ✨
         try { if (typeof m.react === "function") await m.react("✨"); } catch {}
         
-        const formattedResponse = `✨ *👑 𝙂𝙀𝙈𝙄𝙉𝙄 𝘼𝙄 𝘼𝙎𝙎𝙄𝙎𝙏𝘼𝙉𝙏 👑* ✨\n\n${aiResult.trim()}\n\n_Powered by X-Bot-MD_`;
+        const formattedResponse = `✨ *👑 𝙂𝙀𝙈𝙄𝙉𝙄 𝘼𝙄 𝘼𝙎𝙎𝙄𝙎𝙏𝘼𝙉𝙏 👑* ✨\n\n${aiResult}\n\n_Powered by X-Bot-MD_`;
         await sendMsg(formattedResponse);
 
     } catch (error) {
