@@ -16,7 +16,7 @@ function extractYoutubeUrl(text) {
 }
 
 /**
- * 🎵 Professional MP3 Downloader Plugin (Exact Endpoint Version)
+ * 🎵 Professional MP3 Downloader Plugin (Deep Download Link Fix)
  */
 Sparky({
     name: "song",
@@ -48,7 +48,7 @@ Sparky({
         let youtubeUrl = extractYoutubeUrl(textInput);
         let mediaTitle = "X-Bot Audio";
 
-        // 1. සින්දුවේ නම දුන්විට Exact Search API එකෙන් ලින්ක් එක සෙවීම
+        // 1. YouTube ලින්ක් එකක් නොවේ නම් WhiteShadow Search API එකෙන් සෙවීම
         if (!youtubeUrl) {
             await sendMsg(`🔍 _Searching for_ *"${textInput}"* _on YouTube..._`);
             
@@ -60,7 +60,6 @@ Sparky({
                     searchData = JSON.parse(searchData);
                 }
 
-                // API ප්‍රතිචාරය පරීක්ෂා කර පළමු වීඩියෝ ලින්ක් එක ලබා ගැනීම
                 let results = searchData.results || searchData.result || searchData.data || searchData;
                 
                 if (Array.isArray(results) && results.length > 0) {
@@ -71,7 +70,7 @@ Sparky({
                         youtubeUrl = results.results[0].url || results.results[0].link;
                         mediaTitle = results.results[0].title || mediaTitle;
                     } else {
-                        youtubeUrl = results.url || results.link || results.videoUrl;
+                        youtubeUrl = ExtUrl = results.url || results.link || results.videoUrl;
                         mediaTitle = results.title || mediaTitle;
                     }
                 }
@@ -80,7 +79,6 @@ Sparky({
             }
         }
 
-        // සින්දුව හෝ ලින්ක් එක සොයා ගැනීමට නොහැකි වුවහොත්
         if (!youtubeUrl || typeof youtubeUrl === "object") {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
             return await sendMsg("❌ *Error:* සින්දුව සොයා ගැනීමට නොහැකි විය. කරුණාකර නම නිවැරදිව ටයිප් කරන්න.");
@@ -88,7 +86,7 @@ Sparky({
 
         // 2. Exact Download API එකෙන් සින්දුව බාගත කිරීම
         try { if (typeof m.react === "function") await m.react("📥"); } catch {}
-        await sendMsg(`📥 *"${mediaTitle}"* _බාගත කරමින් පවතී. කරුණාකර රැඳී සිටින්න..._`);
+        await sendMsg(`📥 *"${mediaTitle}"*\n_බාගත කරමින් පවතී. කරුණාකර රැඳී සිටින්න..._`);
 
         const downloadRes = await axios.get(`${DOWNLOAD_API_URL}?url=${encodeURIComponent(youtubeUrl)}&apitoken=${API_TOKEN}`, { timeout: 45000 });
 
@@ -97,17 +95,21 @@ Sparky({
             dlData = JSON.parse(dlData);
         }
 
-        // API Response එක අනුව Audio/MP3 ලින්ක් එක වෙන් කර ගැනීම
-        // WhiteShadow සාමාන්‍යයෙන් 'mp3', 'downloadUrl', 'url' හෝ 'result' ලෙස එවයි
-        let downloadUrl = dlData?.result?.mp3 || dlData?.result?.downloadUrl || dlData?.downloadUrl || dlData?.result?.url || dlData?.url || dlData?.result;
-        
-        if (dlData?.result?.title) mediaTitle = dlData.result.title;
-        else if (dlData?.title) mediaTitle = dlData.title;
+        // 🛠️ MULTI-KEY DOWNLOAD LINK EXTRACTOR (ලින්ක් එක කොහේ තිබුණත් අල්ලා ගැනීම)
+        let resObj = dlData.result || dlData.data || dlData;
+        let downloadUrl = "";
 
-        // බාගත කිරීමේ ලින්ක් එක නැත්නම්
-        if (!downloadUrl || typeof downloadUrl === "object") {
+        if (resObj && typeof resObj === "object") {
+            downloadUrl = resObj.mp3 || resObj.downloadUrl || resObj.dl_url || resObj.link || resObj.url || resObj.download;
+            mediaTitle = resObj.title || mediaTitle;
+        } else if (typeof resObj === "string") {
+            downloadUrl = resObj;
+        }
+
+        // බාගත කිරීමේ ලින්ක් එකක් සේවාදායකයෙන් නොලැබුනේ නම්
+        if (!downloadUrl || typeof downloadUrl === "object" || !downloadUrl.startsWith("http")) {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-            return await sendMsg("❌ *API Error:* සේවාදායකයෙන් බාගත කිරීමේ ලින්ක් එක ලබා දීමට අපොහොසත් විය.");
+            return await sendMsg("❌ *API Error:* සේවාදායකයෙන් බාගත කිරීමේ ලින්ක් එක ලබා දීමට අපොහොසත් විය. පසුව උත්සාහ කරන්න.");
         }
 
         const cleanFileName = mediaTitle.replace(/[\\/:*?"<>|]/g, "_").slice(0, 50) + `.mp3`;
@@ -118,9 +120,9 @@ Sparky({
         await client.sendMessage(
             m.jid,
             {
-                audio: { url: downloadUrl },
+                audio: { url: downloadUrl.trim() },
                 mimetype: "audio/mpeg",
-                ptt: false, // Voice note එකක් නොවන සැබෑ සින්දුවක් ලෙස යැවීමට
+                ptt: false,
                 fileName: cleanFileName
             },
             { quoted: m }
