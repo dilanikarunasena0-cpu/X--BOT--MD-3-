@@ -43,13 +43,13 @@ function extractRealAIResponse(data) {
 }
 
 /**
- * 🤖 Professional Gemini AI Chat Plugin (No Bold/Stars Version)
+ * 🤖 Professional Gemini AI Chat Plugin (No Markdown Hashes/Stars Version)
  */
 Sparky({
     name: "gemini",
     fromMe: isPublic,
     category: "ai",
-    desc: "Chat with Gemini Artificial Intelligence without bold markdown."
+    desc: "Chat with Gemini Artificial Intelligence without markdown hashes."
 }, async ({ m, client, args }) => {
     
     // 🛡️ Fail-Safe Text Message Sender
@@ -80,13 +80,16 @@ Sparky({
 
         let aiResult = extractRealAIResponse(response.data);
 
-        // 🛠️ WHATSAPP සඳහා පෙළ පිරිසිදු කිරීම සහ තරු ලකුණු (Bold) ඉවත් කිරීම
+        // 🛠️ WHATSAPP සඳහා පෙළ පිරිසිදු කිරීම (Hashes, Stars සහ Tables හැඩගැන්වීම)
         if (aiResult) {
+            // ❌ Markdown Heading ලකුණු (#, ##, ###) සම්පූර්ණයෙන්ම මකා දැමීම
+            aiResult = aiResult.replace(/#+\s*/g, '');
+
             // ❌ අකුරු බෝල්ඩ් කිරීමට එන සියලුම තරු ලකුණු (**) සම්පූර්ණයෙන්ම මකා දැමීම
             aiResult = aiResult.replace(/\*\*/g, '');
             
             // ලැයිස්තු සඳහා එන තනි තරු ලකුණු පිරිසිදු කර ලස්සන පොයින්ට්ස් (🔸) බවට හැරවීම
-            aiResult = aiResult.replace(/^\s*\* /gm, '🔸 ');
+            aiResult = aiResult.replace(/^\s\* /gm, '🔸 ');
             aiResult = aiResult.replace(/\*/g, ''); // ඉතිරි විය හැකි වෙනත් තරු ලකුණු ඇත්නම් ඒවාද ඉවත් කිරීම
 
             // LaTeX / Math සංකේත ඉවත් කිරීම
@@ -105,8 +108,8 @@ Sparky({
 
         try { if (typeof m.react === "function") await m.react("✨"); } catch {}
         
-        // අවසන් පිරිසිදු මැසේජ් එක (ප්‍රධාන මාතෘකාවේ තරු ලකුණු ඉවත් කර ඇත)
-        const formattedResponse = `✨ 👑 𝙂𝙀𝙈𝙄𝙉𝙄 𝘼badge 𝘼𝙎𝙎𝙄𝙎𝙏𝘼𝙉𝙏 👑 ✨\n\n${aiResult.trim()}\n\n_Powered by X-Bot-MD_`;
+        // අවසන් පිරිසිදු මැසේජ් එක (Heading Hashes සහ Title typo එක නිවැරදි කර ඇත)
+        const formattedResponse = `✨ *👑 𝙂𝙀𝙈context 𝘼𝙄 𝘼𝙎𝙎𝙄𝙎𝙏𝘼𝙉𝙏 👑* ✨\n\n${aiResult.trim()}\n\n_Powered by X-Bot-MD_`;
         await sendMsg(formattedResponse);
 
     } catch (error) {
