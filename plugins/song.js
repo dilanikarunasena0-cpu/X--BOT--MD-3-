@@ -1,10 +1,10 @@
 const { Sparky, isPublic } = require("../lib");
 const axios = require("axios");
 
-// 🌐 WhiteShadow API Configurations
+// 🌐 Your Exact WhiteShadow API Endpoints
 const API_TOKEN = "07CRv4";
-const SEARCH_API_URL = "https://whiteshadow-x-api.onrender.com/api/search/youtube";
-const DOWNLOAD_API_URL = "https://whiteshadow-x-api.onrender.com/api/download/ytmp3"; 
+const SEARCH_API_URL = "https://whiteshadow-x-api.onrender.com/api/search/yt";
+const DOWNLOAD_API_URL = "https://whiteshadow-x-api.onrender.com/api/download/yt"; 
 
 /**
  * 📱 YouTube URL Extraction Utility
@@ -16,13 +16,13 @@ function extractYoutubeUrl(text) {
 }
 
 /**
- * 🎵 Professional MP3 Downloader Plugin (Deep Object Search Fixed)
+ * 🎵 Professional MP3 Downloader Plugin (Exact Endpoint Version)
  */
 Sparky({
     name: "song",
     fromMe: isPublic,
     category: "download",
-    desc: "Download MP3 Songs easily via WhiteShadow Engine."
+    desc: "Download MP3 Songs via Exact WhiteShadow Endpoints."
 }, async ({ m, client, args }) => {
     
     // 🛡️ Fail-Safe Text Message Sender
@@ -48,7 +48,7 @@ Sparky({
         let youtubeUrl = extractYoutubeUrl(textInput);
         let mediaTitle = "X-Bot Audio";
 
-        // 1. YouTube ලින්ක් එකක් නොවේ නම් WhiteShadow Search API එකෙන් සෙවීම
+        // 1. සින්දුවේ නම දුන්විට Exact Search API එකෙන් ලින්ක් එක සෙවීම
         if (!youtubeUrl) {
             await sendMsg(`🔍 _Searching for_ *"${textInput}"* _on YouTube..._`);
             
@@ -60,14 +60,13 @@ Sparky({
                     searchData = JSON.parse(searchData);
                 }
 
-                // 🛠️ BULLETPROOF SEARCH PARSER (JSON ව්‍යුහය කොහොම ආවත් ලින්ක් එක සොයා ගැනීම)
+                // API ප්‍රතිචාරය පරීක්ෂා කර පළමු වීඩියෝ ලින්ක් එක ලබා ගැනීම
                 let results = searchData.results || searchData.result || searchData.data || searchData;
                 
                 if (Array.isArray(results) && results.length > 0) {
                     youtubeUrl = results[0].url || results[0].link || results[0].videoUrl;
                     mediaTitle = results[0].title || mediaTitle;
                 } else if (results && typeof results === "object") {
-                    // Array එකක් නොවී සෘජුවම Object එකක් ලෙස ප්‍රතිඵල ආවොත්
                     if (Array.isArray(results.results) && results.results[0]) {
                         youtubeUrl = results.results[0].url || results.results[0].link;
                         mediaTitle = results.results[0].title || mediaTitle;
@@ -77,17 +76,17 @@ Sparky({
                     }
                 }
             } catch (searchErr) {
-                console.error("[X-BOT-MD SONG] WhiteShadow Search API failed:", searchErr.message);
+                console.error("[X-BOT-MD SONG] Search API failed:", searchErr.message);
             }
         }
 
         // සින්දුව හෝ ලින්ක් එක සොයා ගැනීමට නොහැකි වුවහොත්
         if (!youtubeUrl || typeof youtubeUrl === "object") {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-            return await sendMsg("❌ *Error:* සින්දුව සොයා ගැනීමට නොහැකි විය. කරුණාකර නම වෙනත් ආකාරයකට ටයිප් කරන්න.");
+            return await sendMsg("❌ *Error:* සින්දුව සොයා ගැනීමට නොහැකි විය. කරුණාකර නම නිවැරදිව ටයිප් කරන්න.");
         }
 
-        // 2. WhiteShadow Downloader API එකෙන් MP3 Link එක ලබා ගැනීම
+        // 2. Exact Download API එකෙන් සින්දුව බාගත කිරීම
         try { if (typeof m.react === "function") await m.react("📥"); } catch {}
         await sendMsg(`📥 *"${mediaTitle}"* _බාගත කරමින් පවතී. කරුණාකර රැඳී සිටින්න..._`);
 
@@ -98,16 +97,17 @@ Sparky({
             dlData = JSON.parse(dlData);
         }
 
-        // JSON එක ඇතුළේ ඇති download ලින්ක් එක නිවැරදිව ලබා ගැනීම
-        let downloadUrl = dlData?.result?.downloadUrl || dlData?.downloadUrl || dlData?.result?.url || dlData?.url || dlData?.result;
+        // API Response එක අනුව Audio/MP3 ලින්ක් එක වෙන් කර ගැනීම
+        // WhiteShadow සාමාන්‍යයෙන් 'mp3', 'downloadUrl', 'url' හෝ 'result' ලෙස එවයි
+        let downloadUrl = dlData?.result?.mp3 || dlData?.result?.downloadUrl || dlData?.downloadUrl || dlData?.result?.url || dlData?.url || dlData?.result;
         
         if (dlData?.result?.title) mediaTitle = dlData.result.title;
         else if (dlData?.title) mediaTitle = dlData.title;
 
-        // ලින්ක් එක නොමැති නම් වැරැද්දක් පෙන්වීම
+        // බාගත කිරීමේ ලින්ක් එක නැත්නම්
         if (!downloadUrl || typeof downloadUrl === "object") {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-            return await sendMsg("❌ *API Error:* සේවාදායකයෙන් බාගත කිරීමේ ලින්ක් එක ලබා දීමට අපොහොසත් විය. පසුව උත්සාහ කරන්න.");
+            return await sendMsg("❌ *API Error:* සේවාදායකයෙන් බාගත කිරීමේ ලින්ක් එක ලබා දීමට අපොහොසත් විය.");
         }
 
         const cleanFileName = mediaTitle.replace(/[\\/:*?"<>|]/g, "_").slice(0, 50) + `.mp3`;
@@ -120,7 +120,7 @@ Sparky({
             {
                 audio: { url: downloadUrl },
                 mimetype: "audio/mpeg",
-                ptt: false,
+                ptt: false, // Voice note එකක් නොවන සැබෑ සින්දුවක් ලෙස යැවීමට
                 fileName: cleanFileName
             },
             { quoted: m }
