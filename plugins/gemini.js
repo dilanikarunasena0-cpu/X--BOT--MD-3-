@@ -6,7 +6,51 @@ const API_TOKEN = "07CRv4";
 const GEMINI_API_URL = "https://whiteshadow-x-api.onrender.com/api/ai/gemini";
 
 /**
- * 🤖 Professional Gemini AI Chat Plugin (Deep JSON Parsing Fixed)
+ * 🛠️ Helper function to deeply scan and find the real text inside any Object/JSON
+ */
+function findTextDeep(obj) {
+    if (!obj) return "";
+    
+    // 1. String එකක් නම් කෙලින්ම බැලීම (එය JSON String එකක්ද කියාද පරීක්ෂා කරයි)
+    if (typeof obj === "string") {
+        try {
+            const parsed = JSON.parse(obj);
+            if (typeof parsed === "object") return findTextDeep(parsed);
+        } catch (e) {
+            return obj; // සාමාන්‍ය පිරිසිදු Text එකක් නම් රිටර්න් කරයි
+        }
+    }
+    
+    // 2. Object එකක් නම් එහි ඇති පොදු Keys පරීක්ෂා කිරීම
+    if (typeof obj === "object") {
+        if (obj.response && typeof obj.response === "string") return obj.response;
+        if (obj.result && typeof obj.result === "string") return obj.result;
+        if (obj.data && typeof obj.data === "string") return obj.data;
+        
+        // 3. කිසිවක් නැත්නම් Object එක පුරා ලූප් එකක් යවා String එකක් සෙවීම
+        for (let key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                const val = obj[key];
+                if (typeof val === "string" && !["model", "prompt", "status"].includes(key)) {
+                    // JSON දත්ත පවතිනවාද කියා නැවත බැලීම
+                    try {
+                        const subParsed = JSON.parse(val);
+                        if (typeof subParsed === "object") return findTextDeep(subParsed);
+                    } catch (e) {}
+                    return val; 
+                }
+                if (typeof val === "object") {
+                    const deepVal = findTextDeep(val);
+                    if (deepVal) return deepVal;
+                }
+            }
+        }
+    }
+    return String(obj);
+}
+
+/**
+ * 🤖 Professional Gemini AI Chat Plugin (Bulletproof Object Fix)
  */
 Sparky({
     name: "gemini",
@@ -34,7 +78,7 @@ Sparky({
         query = query || m.quoted?.text || "";
 
         if (!query) {
-            return await sendMsg("🤖 *X-BOT-MD GEMINI AI*\n\nකරුණාකර AI එකෙන් ඇසීමට අවශ්‍ය ප්‍රශ්නය ලබා දෙන්න.\n\n💡 _උදා: .gemini ලෝකයේ දිගම ගඟ කුමක්ද?_");
+            return await sendMsg("🤖 *X-BOT-MD GEMINI AI*\n\nකරුණාකර AI එකෙන් ඇසීමට අවශ්‍ය ප්‍රශ්නය ලබා දෙන්න.\n\n💡 _උදා: .gemini hy_");
         }
 
         // Reaction: Thinking 🧠
@@ -43,36 +87,10 @@ Sparky({
         // 🚀 Fetching Response from WhiteShadow Gemini API
         const response = await axios.get(`${GEMINI_API_URL}?q=${encodeURIComponent(query)}&apitoken=${API_TOKEN}`, { timeout: 30000 });
 
-        let rawData = response.data;
-        let aiResult = "";
+        // Deep Scanner එක හරහා සැබෑ Text පිළිතුර පමණක් වෙන් කර ගැනීම
+        let cleanText = findTextDeep(response.data);
 
-        // 1. DEEP JSON PARSING SYSTEM (ලැජ්ජ නැතුව එන JSON String එක කඩා බිඳ දැමීම)
-        try {
-            let dataObj = rawData;
-            
-            // එකම දේ String එකක් විදිහට දෙපාරක් ආවත් Parse කරගැනීමට Loop එකක් භාවිතය
-            while (typeof dataObj === "string") {
-                dataObj = JSON.parse(dataObj);
-            }
-
-            if (dataObj && typeof dataObj === "object") {
-                aiResult = dataObj.response || dataObj.result || dataObj.data || JSON.stringify(dataObj);
-            } else {
-                aiResult = String(dataObj);
-            }
-        } catch (jsonErr) {
-            // JSON Parse කරන්න බැරි සාමාන්‍ය Text එකක් නම් කෙලින්ම ගන්නවා
-            if (rawData && typeof rawData === "object") {
-                aiResult = rawData.response || rawData.result || rawData.data || JSON.stringify(rawData);
-            } else {
-                aiResult = String(rawData);
-            }
-        }
-
-        // 2. අනිවාර්යයෙන්ම String එකක් බවට ස්ථාවර කර ගැනීම
-        let cleanText = String(aiResult || "").trim();
-
-        // 3. WHATSAPP සඳහා පෙළ තවත් පිරිසිදු කිරීම
+        // 🛠️ WHATSAPP සඳහා පෙළ පිරිසිදු කිරීම (LaTeX සහ Tables හැඩගැන්වීම)
         if (cleanText) {
             // LaTeX / Math සංකේත ඉවත් කිරීම
             cleanText = cleanText.replace(/\$[\s\S]*? text\{([\s\S]*?)\}\$/g, '$1');
@@ -83,8 +101,8 @@ Sparky({
             cleanText = cleanText.replace(/\|/g, ' 🔹 '); 
         }
 
-        // පිළිතුරක් නොමැති නම්
-        if (!cleanText || cleanText === "" || cleanText === "undefined") {
+        // පිළිතුරක් නොමැති නම් හෝ වැරදි අගයක් ආවොත්
+        if (!cleanText || cleanText.trim() === "" || cleanText === "undefined" || cleanText.includes("[object Object]")) {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
             return await sendMsg("❌ *AI Error:* සේවාදායකයෙන් නිසි පිළිතුරක් ලබා ගැනීමට නොහැකි විය. පසුව උත්සාහ කරන්න.");
         }
@@ -92,8 +110,8 @@ Sparky({
         // Success Reaction & Sending Reply ✨
         try { if (typeof m.react === "function") await m.react("✨"); } catch {}
         
-        // මිනිසෙකුට කියවිය හැකි පරිදි ලස්සනට සකස් කළ අවසන් මැසේජ් එක
-        const formattedResponse = `✨ *👑 𝙂𝙀𝙈𝙄𝙉𝙄 𝘼𝙄 𝘼𝙎𝙎𝙄𝙎𝙏𝘼𝙉𝙏 👑* ✨\n\n${cleanText}\n\n_Powered by X-Bot-MD_`;
+        // මනුස්සයෙකුට කියවිය හැකි ලස්සන අවසන් මැසේජ් එක
+        const formattedResponse = `✨ *👑 𝙂𝙀𝙈𝙄𝙉𝙄 𝘼𝙄 𝘼𝙎𝙎𝙄𝙎𝙏𝘼𝙉𝙏 👑* ✨\n\n${cleanText.trim()}\n\n_Powered by X-Bot-MD_`;
         await sendMsg(formattedResponse);
 
     } catch (error) {
