@@ -1,10 +1,9 @@
 const { Sparky, isPublic } = require("../lib");
 const axios = require("axios");
 
-// 🌐 Configuration
+// 🌐 WhiteShadow API Configurations
 const API_TOKEN = "07CRv4";
-// සටහන: බොහෝ WhiteShadow API වල ytdl/download endpoint එක පවතී. 
-// මෙහිදී වඩාත්ම ස්ථාවර සහ වේගවත් පොදු බාගත කිරීමේ එන්ජිම සම්බන්ධ කර ඇත.
+const SEARCH_API_URL = "https://whiteshadow-x-api.onrender.com/api/search/youtube";
 const DOWNLOAD_API_URL = "https://whiteshadow-x-api.onrender.com/api/download/ytmp3"; 
 
 /**
@@ -17,7 +16,7 @@ function extractYoutubeUrl(text) {
 }
 
 /**
- * 🎵 Professional MP3 Downloader Plugin
+ * 🎵 Professional MP3 Downloader Plugin (Fixed Search & API)
  */
 Sparky({
     name: "song",
@@ -37,7 +36,6 @@ Sparky({
     };
 
     try {
-        // Input text එක ලබා ගැනීම
         let textInput = Array.isArray(args) ? args.join(" ").trim() : String(args || "").trim();
         textInput = textInput || m.quoted?.text || "";
 
@@ -45,78 +43,66 @@ Sparky({
             return await sendMsg(`🎵 *X-BOT-MD SONG DOWNLOADER*\n\nකරුණාකර සින්දුවක නමක් හෝ YouTube ලින්ක් එකක් ලබා දෙන්න.\n\n💡 _උදා: .song master sir_`);
         }
 
-        // Reaction: Searching 🔎
         try { if (typeof m.react === "function") await m.react("🔎"); } catch {}
 
-        const checkedUrl = extractYoutubeUrl(textInput);
-        let youtubeUrl = null;
+        let youtubeUrl = extractYoutubeUrl(textInput);
         let mediaTitle = "X-Bot Audio";
 
-        // 1. RESOLVING INPUT (LINK OR BUILT-IN INTERNAL SEARCH)
-        if (checkedUrl) {
-            youtubeUrl = checkedUrl;
-            await sendMsg("🔗 _YouTube ලින්ක් එක හඳුනාගත්තා. ක්‍රියාවලිය ආරම්භ කරමින්..._");
-        } else {
+        // 1. YouTube ලින්ක් එකක් නොවේ නම් WhiteShadow Search API එකෙන් සෙවීම
+        if (!youtubeUrl) {
             await sendMsg(`🔍 _Searching for_ *"${textInput}"* _on YouTube..._`);
             
             try {
-                // කිසිම බාහිර API එකක් නැතුව බොට් ඇතුලෙන්ම සෙවීමට yt-search භාවිතය
-                const yts = require("yt-search");
-                const searchResult = await yts(textInput);
+                const searchRes = await axios.get(`${SEARCH_API_URL}?q=${encodeURIComponent(textInput)}&apitoken=${API_TOKEN}`, { timeout: 20000 });
                 
-                if (searchResult && searchResult.videos.length > 0) {
-                    const firstResult = searchResult.videos[0];
-                    youtubeUrl = firstResult.url;
-                    mediaTitle = firstResult.title || mediaTitle;
+                let searchData = searchRes.data;
+                if (typeof searchData === "string") searchData = JSON.parse(searchData);
+
+                // API එකෙන් එන JSON දත්ත ව්‍යුහය (Structure) පරීක්ෂා කිරීම
+                let results = searchData.results || searchData.result || searchData.data || searchData;
+                
+                if (Array.isArray(results) && results.length > 0) {
+                    youtubeUrl = results[0].url || results[0].link;
+                    mediaTitle = results[0].title || mediaTitle;
+                } else if (typeof results === "object" && results.url) {
+                    youtubeUrl = results.url;
+                    mediaTitle = results.title || mediaTitle;
                 }
             } catch (searchErr) {
-                console.error("[X-BOT-MD SONG] Internal Search Error, trying backup:", searchErr.message);
-                // Backup Search Method
-                try {
-                    const backupRes = await axios.get(`https://api.giftedtech.my.id/api/search/youtube?q=${encodeURIComponent(textInput)}`);
-                    if (backupRes.data?.status === 200 && backupRes.data?.result?.[0]) {
-                        youtubeUrl = backupRes.data.result[0].url;
-                        mediaTitle = backupRes.data.result[0].title || mediaTitle;
-                    }
-                } catch (err) {
-                    console.error("[X-BOT-MD SONG] All Search Methods Failed");
-                }
+                console.error("[X-BOT-MD SONG] WhiteShadow Search API failed:", searchErr.message);
             }
         }
 
-        // ලින්ක් එකක් සොයා ගැනීමට නොහැකි වුවහොත්
+        // සින්දුව හෝ ලින්ක් එක සොයා ගැනීමට නොහැකි වුවහොත්
         if (!youtubeUrl) {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-            return await sendMsg("❌ *Error:* සින්දුව සොයා ගැනීමට නොහැකි විය. කරුණාකර නම නිවැරදිව ටයිප් කරන්න.");
+            return await sendMsg("❌ *Error:* සින්දුව සොයා ගැනීමට නොහැකි විය. කරුණාකර නම වෙනත් ආකාරයකට ටයිප් කරන්න.");
         }
 
-        // 2. FETCHING DOWNLOAD LINK FROM WHITESHADOW API
+        // 2. WhiteShadow Downloader API එකෙන් MP3 Link එක ලබා ගැනීම
         try { if (typeof m.react === "function") await m.react("📥"); } catch {}
-        await sendMsg(`📥 _Downloading_ *"${mediaTitle}"* _via WhiteShadow Server..._`);
+        await sendMsg(`📥 *"${mediaTitle}"* _බාගත කරමින් පවතී. කරුණාකර රැඳී සිටින්න..._`);
 
-        const apiUrl = `${DOWNLOAD_API_URL}?url=${encodeURIComponent(youtubeUrl)}&apitoken=${API_TOKEN}`;
-        const res = await axios.get(apiUrl, { timeout: 45000 });
+        const downloadRes = await axios.get(`${DOWNLOAD_API_URL}?url=${encodeURIComponent(youtubeUrl)}&apitoken=${API_TOKEN}`, { timeout: 45000 });
 
-        // JSON වල හැංගිලා එන downloadUrl එක නිවැරදිව වෙන් කර ගැනීම
-        let rawData = res.data;
-        let parsedData = typeof rawData === "string" ? JSON.parse(rawData) : rawData;
-        if (parsedData && typeof parsedData === "string") parsedData = JSON.parse(parsedData);
+        let dlData = downloadRes.data;
+        if (typeof dlData === "string") dlData = JSON.parse(dlData);
 
-        // විවිධ API හැඩතල (Structures) වලට ගැලපෙන සේ Link එක සෙවීම
-        let downloadUrl = parsedData?.result?.downloadUrl || parsedData?.downloadUrl || parsedData?.result?.url || parsedData?.url || parsedData?.result;
+        // JSON එක ඇතුළේ ඇති download ලින්ක් එක නිවැරදිව ලබා ගැනීම
+        let downloadUrl = dlData?.result?.downloadUrl || dlData?.downloadUrl || dlData?.result?.url || dlData?.url || dlData?.result;
         
-        if (parsedData?.result?.title) mediaTitle = parsedData.result.title;
-        else if (parsedData?.title) mediaTitle = parsedData.title;
+        if (dlData?.result?.title) mediaTitle = dlData.result.title;
+        else if (dlData?.title) mediaTitle = dlData.title;
 
+        // ලින්ක් එක Object එකක් නම් හෝ නැත්නම් වැරැද්දක් පෙන්වීම
         if (!downloadUrl || typeof downloadUrl === "object") {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-            return await sendMsg("❌ *API Error:* සේවාදායකයෙන් බාගත කිරීමේ ලින්ක් එක ලබා දීමට අපොහොසත් විය.");
+            return await sendMsg("❌ *API Error:* සේවාදායකයෙන් බාගත කිරීමේ ලින්ක් එක ලබා දීමට අපොහොසත් විය. (API එක සක්‍රීයදැයි පරීක්ෂා කරන්න)");
         }
 
-        // ෆයිල් එකේ නම පිරිසිදු කිරීම
         const cleanFileName = mediaTitle.replace(/[\\/:*?"<>|]/g, "_").slice(0, 50) + `.mp3`;
 
-        // 3. SENDING THE MP3 FILE TO WHATSAPP
+        // 3. සින්දුව සෘජුවම MP3 Audio එකක් ලෙස WhatsApp වෙත යැවීම
         await sendMsg(`✨ *👑 𝙓-𝘽𝙊𝙏-𝙈𝘿 𝙎𝙊𝙉𝙂 👑* ✨\n\n📌 *Title:* ${mediaTitle}\n💿 *Format:* MP3 Audio\n🚀 *Status:* Uploading to WhatsApp...`);
 
         await client.sendMessage(
@@ -124,7 +110,7 @@ Sparky({
             {
                 audio: { url: downloadUrl },
                 mimetype: "audio/mpeg",
-                ptt: false, // Voice note එකක් නොවී Audio File එකක් ලෙසම යාමට
+                ptt: false, // Voice Note එකක් ලෙස නොවී සින්දුවක් ලෙසම යාමට
                 fileName: cleanFileName
             },
             { quoted: m }
