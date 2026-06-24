@@ -6,7 +6,7 @@ const API_TOKEN = "07CRv4";
 const GEMINI_API_URL = "https://whiteshadow-x-api.onrender.com/api/ai/gemini";
 
 /**
- * 🤖 Professional Gemini AI Chat Plugin (Type Error Fixed)
+ * 🤖 Professional Gemini AI Chat Plugin (Deep JSON Parsing Fixed)
  */
 Sparky({
     name: "gemini",
@@ -44,42 +44,47 @@ Sparky({
         const response = await axios.get(`${GEMINI_API_URL}?q=${encodeURIComponent(query)}&apitoken=${API_TOKEN}`, { timeout: 30000 });
 
         let rawData = response.data;
-        let extractedOutput = "";
+        let aiResult = "";
 
-        // 1. JSON පවතිනවාද කියා බලා එය නිවැරදිව Parse කිරීම
+        // 1. DEEP JSON PARSING SYSTEM (ලැජ්ජ නැතුව එන JSON String එක කඩා බිඳ දැමීම)
         try {
-            let parsedData = typeof rawData === "string" ? JSON.parse(rawData) : rawData;
+            let dataObj = rawData;
             
-            if (parsedData && typeof parsedData === "object") {
-                extractedOutput = parsedData.response || parsedData.result || parsedData.data || parsedData;
-                
-                // යම් හෙයකින් extractedOutput එක තවමත් Object එකක් නම් එය String එකක් කර ගැනීම
-                if (typeof extractedOutput === "object") {
-                    extractedOutput = extractedOutput.text || extractedOutput.msg || JSON.stringify(extractedOutput);
-                }
+            // එකම දේ String එකක් විදිහට දෙපාරක් ආවත් Parse කරගැනීමට Loop එකක් භාවිතය
+            while (typeof dataObj === "string") {
+                dataObj = JSON.parse(dataObj);
+            }
+
+            if (dataObj && typeof dataObj === "object") {
+                aiResult = dataObj.response || dataObj.result || dataObj.data || JSON.stringify(dataObj);
             } else {
-                extractedOutput = rawData;
+                aiResult = String(dataObj);
             }
         } catch (jsonErr) {
-            extractedOutput = rawData;
+            // JSON Parse කරන්න බැරි සාමාන්‍ය Text එකක් නම් කෙලින්ම ගන්නවා
+            if (rawData && typeof rawData === "object") {
+                aiResult = rawData.response || rawData.result || rawData.data || JSON.stringify(rawData);
+            } else {
+                aiResult = String(rawData);
+            }
         }
 
-        // 2. අනිවාර්යයෙන්ම String එකක් බවට හැරවීම (.replace error එක වැළැක්වීමට)
-        let aiResult = String(extractedOutput || "").trim();
+        // 2. අනිවාර්යයෙන්ම String එකක් බවට ස්ථාවර කර ගැනීම
+        let cleanText = String(aiResult || "").trim();
 
-        // 3. WHATSAPP සඳහා පෙළ පිරිසිදු කිරීම (Clean & Format Text)
-        if (aiResult) {
+        // 3. WHATSAPP සඳහා පෙළ තවත් පිරිසිදු කිරීම
+        if (cleanText) {
             // LaTeX / Math සංකේත ඉවත් කිරීම
-            aiResult = aiResult.replace(/\$[\s\S]*? text\{([\s\S]*?)\}\$/g, '$1');
-            aiResult = aiResult.replace(/\$/g, '');
+            cleanText = cleanText.replace(/\$[\s\S]*? text\{([\s\S]*?)\}\$/g, '$1');
+            cleanText = cleanText.replace(/\$/g, '');
             
             // Markdown Tables වල ඇති අමතර ඉරි කැබලි පිරිසිදු කිරීම
-            aiResult = aiResult.replace(/\|?\s*:?-+\s*:?\s*\|/g, ''); 
-            aiResult = aiResult.replace(/\|/g, ' 🔹 '); 
+            cleanText = cleanText.replace(/\|?\s*:?-+\s*:?\s*\|/g, ''); 
+            cleanText = cleanText.replace(/\|/g, ' 🔹 '); 
         }
 
         // පිළිතුරක් නොමැති නම්
-        if (!aiResult || aiResult === "") {
+        if (!cleanText || cleanText === "" || cleanText === "undefined") {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
             return await sendMsg("❌ *AI Error:* සේවාදායකයෙන් නිසි පිළිතුරක් ලබා ගැනීමට නොහැකි විය. පසුව උත්සාහ කරන්න.");
         }
@@ -87,7 +92,8 @@ Sparky({
         // Success Reaction & Sending Reply ✨
         try { if (typeof m.react === "function") await m.react("✨"); } catch {}
         
-        const formattedResponse = `✨ *👑 𝙂𝙀𝙈𝙄𝙉𝙄 𝘼𝙄 𝘼𝙎𝙎𝙄𝙎𝙏𝘼𝙉𝙏 👑* ✨\n\n${aiResult}\n\n_Powered by X-Bot-MD_`;
+        // මිනිසෙකුට කියවිය හැකි පරිදි ලස්සනට සකස් කළ අවසන් මැසේජ් එක
+        const formattedResponse = `✨ *👑 𝙂𝙀𝙈𝙄𝙉𝙄 𝘼𝙄 𝘼𝙎𝙎𝙄𝙎𝙏𝘼𝙉𝙏 👑* ✨\n\n${cleanText}\n\n_Powered by X-Bot-MD_`;
         await sendMsg(formattedResponse);
 
     } catch (error) {
