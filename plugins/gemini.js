@@ -6,51 +6,53 @@ const API_TOKEN = "07CRv4";
 const GEMINI_API_URL = "https://whiteshadow-x-api.onrender.com/api/ai/gemini";
 
 /**
- * 🛠️ Helper function to deeply scan and find the real text inside any Object/JSON
+ * 🎯 Strict JSON Parser to extract only the real AI response text
  */
-function findTextDeep(obj) {
-    if (!obj) return "";
-    
-    // 1. String එකක් නම් කෙලින්ම බැලීම (එය JSON String එකක්ද කියාද පරීක්ෂා කරයි)
-    if (typeof obj === "string") {
-        try {
-            const parsed = JSON.parse(obj);
-            if (typeof parsed === "object") return findTextDeep(parsed);
-        } catch (e) {
-            return obj; // සාමාන්‍ය පිරිසිදු Text එකක් නම් රිටර්න් කරයි
+function extractRealAIResponse(data) {
+    if (!data) return "";
+
+    try {
+        // 1. මුලින්ම ආපු දත්ත String එකක් නම් එය Object එකක් කරමු
+        let obj = typeof data === "string" ? JSON.parse(data) : data;
+
+        // 2. එකම දේ තවත් String එකක් ඇතුලට දාලා එවුවොත් (Double Encoded) නැවත Parse කරමු
+        if (obj && typeof obj === "string") {
+            obj = JSON.parse(obj);
         }
-    }
-    
-    // 2. Object එකක් නම් එහි ඇති පොදු Keys පරීක්ෂා කිරීම
-    if (typeof obj === "object") {
-        if (obj.response && typeof obj.response === "string") return obj.response;
-        if (obj.result && typeof obj.result === "string") return obj.result;
-        if (obj.data && typeof obj.data === "string") return obj.data;
-        
-        // 3. කිසිවක් නැත්නම් Object එක පුරා ලූප් එකක් යවා String එකක් සෙවීම
-        for (let key in obj) {
-            if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                const val = obj[key];
-                if (typeof val === "string" && !["model", "prompt", "status"].includes(key)) {
-                    // JSON දත්ත පවතිනවාද කියා නැවත බැලීම
-                    try {
-                        const subParsed = JSON.parse(val);
-                        if (typeof subParsed === "object") return findTextDeep(subParsed);
-                    } catch (e) {}
-                    return val; 
+
+        // 3. දැන් කෙලින්ම 'response' හෝ 'result' කියන ප්‍රධාන Key එකෙන් දත්ත ගනිමු
+        if (obj && typeof obj === "object") {
+            let target = obj.response || obj.result || obj.data;
+            
+            // යම් හෙයකින් target එකත් JSON String එකක් නම් එයත් Parse කරමු
+            if (typeof target === "string") {
+                try {
+                    let subObj = JSON.parse(target);
+                    if (subObj && subObj.response) return subObj.response;
+                    if (subObj && subObj.result) return subObj.result;
+                } catch (e) {
+                    return target; // සාමාන්‍ය පිරිසිදු පෙළක් නම් කෙලින්ම රිටර්න් කරයි
                 }
-                if (typeof val === "object") {
-                    const deepVal = findTextDeep(val);
-                    if (deepVal) return deepVal;
-                }
+                return target;
+            }
+            
+            // target එක දැනටමත් Object එකක් නම් එහි ඇති අගයන් බැලීම
+            if (target && typeof target === "object") {
+                return target.response || target.result || JSON.stringify(target);
             }
         }
+        
+        // කිසිවක් කරගත නොහැකි වුවහොත් සාමාන්‍ය පෙළ ලෙස හැරවීම
+        return String(data);
+
+    } catch (err) {
+        // JSON Parse කිරීමට නොහැකි පිරිසිදු String එකක් නම්
+        return String(data);
     }
-    return String(obj);
 }
 
 /**
- * 🤖 Professional Gemini AI Chat Plugin (Bulletproof Object Fix)
+ * 🤖 Professional Gemini AI Chat Plugin (Strict Response Target)
  */
 Sparky({
     name: "gemini",
@@ -78,7 +80,7 @@ Sparky({
         query = query || m.quoted?.text || "";
 
         if (!query) {
-            return await sendMsg("🤖 *X-BOT-MD GEMINI AI*\n\nකරුණාකර AI එකෙන් ඇසීමට අවශ්‍ය ප්‍රශ්නය ලබා දෙන්න.\n\n💡 _උදා: .gemini hy_");
+            return await sendMsg("🤖 *X-BOT-MD GEMINI AI*\n\nකරුණාකර AI එකෙන් ඇසීමට අවශ්‍ය ප්‍රශ්නය ලබා දෙන්න.\n\n💡 _උදා: .gemini සිරිපාදය තියෙන්නේ කොහේද?_");
         }
 
         // Reaction: Thinking 🧠
@@ -87,22 +89,22 @@ Sparky({
         // 🚀 Fetching Response from WhiteShadow Gemini API
         const response = await axios.get(`${GEMINI_API_URL}?q=${encodeURIComponent(query)}&apitoken=${API_TOKEN}`, { timeout: 30000 });
 
-        // Deep Scanner එක හරහා සැබෑ Text පිළිතුර පමණක් වෙන් කර ගැනීම
-        let cleanText = findTextDeep(response.data);
+        // නව Strict Parser එක හරහා සැබෑ පිළිතුර පමණක් ලබා ගැනීම
+        let aiResult = extractRealAIResponse(response.data);
 
         // 🛠️ WHATSAPP සඳහා පෙළ පිරිසිදු කිරීම (LaTeX සහ Tables හැඩගැන්වීම)
-        if (cleanText) {
+        if (aiResult) {
             // LaTeX / Math සංකේත ඉවත් කිරීම
-            cleanText = cleanText.replace(/\$[\s\S]*? text\{([\s\S]*?)\}\$/g, '$1');
-            cleanText = cleanText.replace(/\$/g, '');
+            aiResult = aiResult.replace(/\$[\s\S]*? text\{([\s\S]*?)\}\$/g, '$1');
+            aiResult = aiResult.replace(/\$/g, '');
             
             // Markdown Tables වල ඇති අමතර ඉරි කැබලි පිරිසිදු කිරීම
-            cleanText = cleanText.replace(/\|?\s*:?-+\s*:?\s*\|/g, ''); 
-            cleanText = cleanText.replace(/\|/g, ' 🔹 '); 
+            aiResult = aiResult.replace(/\|?\s*:?-+\s*:?\s*\|/g, ''); 
+            aiResult = aiResult.replace(/\|/g, ' 🔹 '); 
         }
 
-        // පිළිතුරක් නොමැති නම් හෝ වැරදි අගයක් ආවොත්
-        if (!cleanText || cleanText.trim() === "" || cleanText === "undefined" || cleanText.includes("[object Object]")) {
+        // පිළිතුරක් නොමැති නම් හෝ අනවශ්‍ය වැරදි අගයක් ආවොත්
+        if (!aiResult || aiResult.trim() === "" || aiResult === "undefined" || aiResult.toLowerCase() === "whiteshadow") {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
             return await sendMsg("❌ *AI Error:* සේවාදායකයෙන් නිසි පිළිතුරක් ලබා ගැනීමට නොහැකි විය. පසුව උත්සාහ කරන්න.");
         }
@@ -110,8 +112,8 @@ Sparky({
         // Success Reaction & Sending Reply ✨
         try { if (typeof m.react === "function") await m.react("✨"); } catch {}
         
-        // මනුස්සයෙකුට කියවිය හැකි ලස්සන අවසන් මැසේජ් එක
-        const formattedResponse = `✨ *👑 𝙂𝙀𝙈𝙄𝙉𝙄 𝘼𝙄 𝘼𝙎𝙎𝙄𝙎𝙏𝘼𝙉𝙏 👑* ✨\n\n${cleanText.trim()}\n\n_Powered by X-Bot-MD_`;
+        // අවසන් පිරිසිදු මැසේජ් එක
+        const formattedResponse = `✨ *👑 𝙂𝙀ﻣ𝙄𝙉𝙄 𝘼𝙄 𝘼𝙎𝙎𝙄𝙎𝙏𝘼𝙉𝙏 👑* ✨\n\n${aiResult.trim()}\n\n_Powered by X-Bot-MD_`;
         await sendMsg(formattedResponse);
 
     } catch (error) {
@@ -120,3 +122,4 @@ Sparky({
         await sendMsg(`❌ *AI Internal Error:* ${error.message}`);
     }
 });
+
