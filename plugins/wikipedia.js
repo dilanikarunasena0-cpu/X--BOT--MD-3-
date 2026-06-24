@@ -4,32 +4,25 @@ const axios = require("axios");
 // 🌐 WhiteShadow API Configuration
 const API_TOKEN = "07CRv4";
 const WIKI_API_URL = "https://whiteshadow-x-api.onrender.com/api/search/wikipedia-details";
-const TRANSLATE_API_URL = "https://whiteshadow-x-api.onrender.com/api/ai/gemini"; // ඉංග්‍රීසි ඒවා සිංහල කිරීමට Gemini භාවිතය
+const TRANSLATE_API_URL = "https://whiteshadow-x-api.onrender.com/api/ai/gemini";
 
 /**
- * 🎯 Deep Parser to extract only the real Wikipedia text content
+ * 🎯 Deep Parser for Wikipedia content structure
  */
 function extractWikiContent(data) {
     if (!data) return "";
-
     try {
         let obj = typeof data === "string" ? JSON.parse(data) : data;
-        
-        if (obj && typeof obj === "string") {
-            obj = JSON.parse(obj);
-        }
+        if (obj && typeof obj === "string") obj = JSON.parse(obj);
 
-        // API ප්‍රතිචාරයේ results[0].detail.content කොටස ඉලක්ක කිරීම
         if (obj && obj.results && Array.isArray(obj.results) && obj.results[0]) {
             const firstResult = obj.results[0];
             return firstResult.detail?.content || firstResult.excerpt || firstResult.description || "";
         }
-        
         if (obj && typeof obj === "object") {
             let target = obj.result || obj.description || obj.response || obj.data;
             if (typeof target === "string") return target;
         }
-
         return String(data);
     } catch (err) {
         return String(data);
@@ -37,7 +30,43 @@ function extractWikiContent(data) {
 }
 
 /**
- * 📚 Professional Wikipedia Search Plugin (Always Sinhala Output)
+ * 🎯 Deep Parser for Gemini Translation API Response (Bulletproof JSON Fix)
+ */
+function extractTranslationText(data) {
+    if (!data) return "";
+    try {
+        let obj = typeof data === "string" ? JSON.parse(data) : data;
+        
+        // JSON String එකක් ඇතුලේ තව JSON එකක් තිබුනොත් (Double Encoded) ලූප් එකක් මඟින් බිඳ දැමීම
+        while (typeof obj === "string") {
+            obj = JSON.parse(obj);
+        }
+
+        if (obj && typeof obj === "object") {
+            let target = obj.response || obj.result || obj.data;
+            
+            if (typeof target === "string") {
+                try {
+                    let subObj = JSON.parse(target);
+                    if (subObj && subObj.response) return subObj.response;
+                    if (subObj && subObj.result) return subObj.result;
+                } catch (e) {
+                    return target;
+                }
+                return target;
+            }
+            if (target && typeof target === "object") {
+                return target.response || target.result || JSON.stringify(target);
+            }
+        }
+        return String(data);
+    } catch (err) {
+        return String(data);
+    }
+}
+
+/**
+ * 📚 Professional Wikipedia Search Plugin (Always Sinhala Output Fixed)
  */
 Sparky({
     name: "wiki",
@@ -70,7 +99,7 @@ Sparky({
         try { if (typeof m.react === "function") await m.react("🔎"); } catch {}
         await sendMsg(`🔍 _Searching Wikipedia for_ *"${query}"*...`);
 
-        // 🧠 Auto Language Detector (සොයන වචනය සිංහලද ඉංග්‍රීසිද කියා බැලීම)
+        // 🧠 Auto Language Detector
         const isQuerySinhala = /[\u0D80-\u0DFF]/.test(query);
         const searchLang = isQuerySinhala ? "si" : "en";
 
@@ -78,7 +107,6 @@ Sparky({
         const apiUrl = `${WIKI_API_URL}?q=${encodeURIComponent(query)}&lang=${searchLang}&limit=1&apitoken=${API_TOKEN}`;
         const response = await axios.get(apiUrl, { timeout: 30000 });
 
-        // සැබෑ විස්තරය පමණක් වෙන් කර ගැනීම
         let wikiResult = extractWikiContent(response.data);
 
         if (!wikiResult || wikiResult.trim() === "" || wikiResult.includes("[object Object]")) {
@@ -86,21 +114,18 @@ Sparky({
             return await sendMsg("❌ *Wikipedia Error:* ඒ පිළිබඳව කිසිදු තොරතුරක් සොයා ගැනීමට නොහැකි විය. කරුණාකර වෙනත් වචනයක් උත්සාහ කරන්න.");
         }
 
-        // 🚀 2. AUTOMATIC SINHALA TRANSLATION SYSTEM
-        // ඉංග්‍රීසියෙන් ලැබුණු දත්ත සිංහලට පරිවර්තනය කිරීම
+        // 🚀 2. DEEP SINHALA TRANSLATION SYSTEM
         if (!isQuerySinhala) {
             try {
                 await sendMsg("🔤 _Translating content into Sinhala..._");
-                const translateQuery = `Translate the following text into clear and natural Sinhala language. Return only the translated text, no extra notes or JSON: ${wikiResult}`;
                 
-                const translationRes = await axios.get(`${TRANSLATE_API_URL}?q=${encodeURIComponent(translateQuery)}&apitoken=${API_TOKEN}`, { timeout: 30000 });
+                // API එක පැටලෙන්නේ නැති වෙන්න සරලව සිංහලට හරවන්න කියා ඉල්ලීම
+                const translatePrompt = `පහත සඳහන් ඉංග්‍රීසි විස්තරය ඉතා පැහැදිලි සිංහල භාෂාවට පරිවර්තනය කර දෙන්න:\n\n${wikiResult}`;
                 
-                let transData = translationRes.data;
-                let parsedTrans = typeof transData === "string" ? JSON.parse(transData) : transData;
+                const translationRes = await axios.get(`${TRANSLATE_API_URL}?q=${encodeURIComponent(translatePrompt)}&apitoken=${API_TOKEN}`, { timeout: 30000 });
                 
-                if (parsedTrans && typeof parsedTrans === "string") parsedTrans = JSON.parse(parsedTrans);
-                
-                let translatedText = parsedTrans?.response || parsedTrans?.result || parsedTrans?.data || "";
+                // Deep Translation Parser එක භාවිතයෙන් සැබෑ සිංහල Text එක පමණක් ගැනීම
+                let translatedText = extractTranslationText(translationRes.data);
                 
                 if (translatedText && typeof translatedText === "string" && translatedText.trim() !== "" && !translatedText.toLowerCase().includes("whiteshadow")) {
                     wikiResult = translatedText;
@@ -110,18 +135,18 @@ Sparky({
             }
         }
 
-        // 🛠️ WHATSAPP සඳහා පෙළ පිරිසිදු කිරීම
+        // 🛠️ WHATSAPP සඳහා පෙළ පිරිසිදු කිරීම (Hashes සහ Stars සියල්ලම ඉවත් කිරීම)
         if (wikiResult) {
             wikiResult = wikiResult.replace(/#+\s*/g, ''); // Hashes ඉවත් කිරීම
             wikiResult = wikiResult.replace(/\*\*/g, ''); // Bold Stars ඉවත් කිරීම
-            wikiResult = wikiResult.replace(/^\s*\* /gm, '🔸 '); // Lists සකස් කිරීම
-            wikiResult = wikiResult.replace(/\*/g, ''); 
+            wikiResult = wikiResult.replace(/^\s*\* /gm, '🔸 '); // Lists සාදා ගැනීම
+            wikiResult = wikiResult.replace(/\*/g, ''); // අමතර තරු ලකුණු ඉවත් කිරීම
         }
 
         // Success Reaction & Sending Reply 📚
         try { if (typeof m.react === "function") await m.react("📚"); } catch {}
         
-        // මිනිසෙකුට පැහැදිලිව කියවිය හැකි අවසන් සිංහල මැසේජ් එක
+        // පිරිසිදු සිංහල අවසන් මැසේජ් එක
         const formattedResponse = `🏛️ *𝙒𝙄𝙆𝙄𝙋𝙀𝘿𝙄𝘼 𝙎𝙀𝘼𝙍𝘾𝙃 (සිංහල)* 🏛️\n\n📌 *Query:* ${query}\n\n${wikiResult.trim()}\n\n_Powered by X-Bot-MD_`;
         await sendMsg(formattedResponse);
 
