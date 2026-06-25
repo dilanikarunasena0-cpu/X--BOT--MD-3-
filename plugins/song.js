@@ -60,7 +60,7 @@ async function coreAudioDownloader({ m, client, args }) {
         } else {
             // ඇතුළත් කළේ සින්දුවක නමක් නම් (WhiteShadow YT Search API)
             await sendMsg(`🔍 _Searching YouTube for: "${textInput}"..._`);
-            console.log("[SADEW-MD MUSIC] Searching YT for name:", textInput);
+            console.log("[KADIYA-MD MUSIC] Searching YT for name:", textInput);
 
             try {
                 const searchResponse = await axios.get(`${YT_SEARCH_API}?q=${encodeURIComponent(textInput)}&apitoken=${API_TOKEN}`, { timeout: 20000 });
@@ -69,10 +69,10 @@ async function coreAudioDownloader({ m, client, args }) {
                     const bestResult = searchResponse.data.result[0];
                     youtubeUrl = bestResult.url;
                     songTitle = bestResult.title || "YouTube Audio";
-                    console.log("[SADEW-MD MUSIC] Search success. Found URL:", youtubeUrl);
+                    console.log("[KADIYA-MD MUSIC] Search success. Found URL:", youtubeUrl);
                 }
             } catch (searchErr) {
-                console.error("[SADEW-MD MUSIC] YT Search API Error:", searchErr.message);
+                console.error("[KADIYA-MD MUSIC] YT Search API Error:", searchErr.message);
             }
         }
 
@@ -83,8 +83,8 @@ async function coreAudioDownloader({ m, client, args }) {
         }
 
         // 2. 320kbps MP3 ලින්ක් එක ලබාගැනීම (WhiteShadow YTMP3 API)
-        await sendMsg("📥 _ _*👑𝙎𝘼𝘿𝙀𝙒-𝙓-𝙈𝘿🔥*_ Extracting 320kbps High-Quality MP3 stream..._");
-        console.log(`[SADEW-MD MUSIC] Triggering Downloader for: ${youtubeUrl}`);
+        await sendMsg("📥 _ _*👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥*_ Extracting 320kbps High-Quality MP3 stream..._");
+        console.log(`[KADIYA-MD MUSIC] Triggering Downloader for: ${youtubeUrl}`);
 
         let audioDownloadUrl = null;
         let finalTitle = songTitle;
@@ -113,7 +113,7 @@ async function coreAudioDownloader({ m, client, args }) {
         // 3. WhatsApp Audio පණිවිඩයක් ලෙස ජංගම දුරකථනයට යැවීම
         const cleanFileName = finalTitle.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60) + ".mp3";
 
-        await sendMsg(`✨ *_👑𝙎𝘼𝘿𝙀𝙒-𝙓-𝙈𝘿🔥_ Music System* ✨\n\n📌 *Title:* ${finalTitle}\n💿 *Quality:* 320kbps Ultra-High Quality\n🚀 *Status:* download via ~*👑𝙎𝘼𝘿𝙀𝙒-𝙓-𝙈𝘿🔥*~`);
+        await sendMsg(`✨ *_👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥_ Music System* ✨\n\n📌 *Title:* ${finalTitle}\n💿 *Quality:* 320kbps Ultra-High Quality\n🚀 *Status:* download via ~*👑𝙎𝘼𝘿𝙀𝙒-𝙓-𝙈𝘿🔥*~`);
 
         await client.sendMessage(
             m.jid,
@@ -129,9 +129,9 @@ async function coreAudioDownloader({ m, client, args }) {
         try { if (typeof m.react === "function") await m.react("✅"); } catch {}
 
     } catch (globalError) {
-        console.error("[SADEW-MD MUSIC] CRITICAL GLOBAL ERROR:", globalError);
+        console.error("[KADIYA-MD MUSIC] CRITICAL GLOBAL ERROR:", globalError);
         try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-        await sendMsg(`❌ *Sadew-MD Music Internal Error:* ${globalError.message}`);
+        await sendMsg(`❌ *Kadiya-MD Music Internal Error:* ${globalError.message}`);
     }
 }
 
