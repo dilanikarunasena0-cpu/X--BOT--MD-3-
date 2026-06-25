@@ -122,7 +122,7 @@ Sparky({
         await m.reply();
 
     } catch (err) {
-        if (typeof m.react === "function") await m.react("❌");
+        if (typeof m.react === "function") await m.react("💗");
         await m.reply();
     }
 });
