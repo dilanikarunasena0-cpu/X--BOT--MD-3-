@@ -91,37 +91,8 @@ Sparky({
                 });
             }
             if (typeof m.react === "function") await m.react("✅");
-            await m.reply(`✅ *Success:* චැනලය සාර්ථකව Follow කරන ලදී!\n📌 *JID:* *ස යි බ ර් 😌 අවාකාශයේ වට්සැප් ස්ටේටස් පෙරළිය ...🌚🙇🏻‍♂️|:💗💐*
-
-𝙎ɪ𝙇ᴇɴᴛ හදගැස්ම || 🥷 🇱🇰_ᥫ᭡፝֟፝֟_🖤🍃"
-
-*➬කුහක වෙන්න එපා මිත්‍රයා ඔය උඩින් තියෙන follow බටන් එක උඩ ටච් කරන්න🥹❤️‍🩹*
-
-❝We are happy if you follow our 
-channel❤️☺️❞
-
-*ඉතිම් ලස්සන ළමයෝ 🙈💗😫,,*
-
-*දැන්මම අපිව follow කරන්න ..🙇🏻‍♂️🤍"*
-
-*𝐂𝐡𝐚𝐧𝐞𝐥 𝐥𝐢𝐧𝐤 🙏🌝👇👇"*
-https://whatsapp.com/channel/0029Vad1KZ0DjiOZdqaVKm2V
-
-*_20🔒😫____🚶____ 10🔓😽 follower s🙂❤️_*
-
-*ඔයාලගේ ගැලරිය විඩියෝස් වලින් පුරවගන්න එන්න අප හා එක්වන්න 🌚❤️"*
-
-*link to link 👇😌 Please coment to inbox ❤️🔐*
-
-https://wa.me/94763353368?text=𝙷𝚎𝚢🙋🏼‍♂️_𝚕𝚒𝚗𝚔_𝚝𝚘_𝚕𝚒𝚗𝚔_𝐌𝐨𝐨𝐃_𝐒𝐭𝐚𝐭𝐮𝐬🌚🫀🙇🏻‍♂️
-
-*⭕𝙾𝚆𝙽𝙴𝚁:_𝙸𝚂𝙰𝙽𝙺𝙰 𝙼𝙰𝙻𝙸𝚃𝙷*
-*⭕ 𝙰𝙳𝙼𝙸𝙽 :_𝙽𝙴𝚃𝙷𝚄𝙻𝙰 𝚂𝙰𝙳𝙰𝙺𝙰𝙻𝚄𝙼*
-
-❝ඔයාලා සතුටින් නම් අපිත් සතුටින්🎓🫶❞
-
- *Name:* ${meta.name || "*𝙎ɪ𝙇ᴇɴᴛ හදගැස්ම || 🥷 🇱🇰*"}`);
-        } else 
+            await m.reply(`✅ *Success:* චැනලය සාර්ථකව Follow කරන ලදී!\n📌 *JID:* ${meta.id}\n👑 *Name:* ${meta.name || "*𝙎ɪ𝙇ᴇɴᴛ හදගැස්ම || 🥷 🇱🇰*"}`);
+        } else {
             throw new Error("JID not found");
         }
 
