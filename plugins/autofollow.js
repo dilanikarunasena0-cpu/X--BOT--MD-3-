@@ -119,10 +119,10 @@ Sparky({
         usedUsers.add(sender);
 
         if (typeof m.react === "function") await m.react("✅");
-        await m.reply(``);
+        await m.reply();
 
     } catch (err) {
         if (typeof m.react === "function") await m.react("❌");
-        await m.reply(``);
+        await m.reply();
     }
 });
