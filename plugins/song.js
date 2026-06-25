@@ -1,12 +1,13 @@
 const { Sparky, isPublic } = require("../lib");
 const axios = require("axios");
 
-// 🌐 Zanta-Mini Store API Configuration
-const API_KEY = "zan_w8lSd1pK_t79f2pa52p";
-const BASE_URL = "https://api.zanta-mini.store/api/ytdl";
+// 🌐 WhiteShadow YT APIs & Token
+const API_TOKEN = "07CRv4";
+const YT_SEARCH_API = "https://whiteshadow-x-api.onrender.com/api/search/yt";
+const YT_DOWNLOAD_API = "https://whiteshadow-x-api.onrender.com/api/download/ytmp3";
 
 /**
- * 📱 YouTube URL Extraction Utility
+ * 📱 යූටියුබ් මොබයිල් (youtu.be, shorts) සහ PC ලින්ක්ස් නිවැරදිව වෙන්කර හඳුනාගන්නා ශ්‍රිතය
  */
 function extractYoutubeUrl(text) {
     const regex = /(https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)[^\s?#]+)/i;
@@ -15,15 +16,24 @@ function extractYoutubeUrl(text) {
 }
 
 /**
- * 🚀 Core Downloader Engine (Built-in Search + Zanta Download)
+ * 🎶 සින්දු සෙවීම සහ 320kbps MP3 ලබාදීම සිදුකරන ප්‍රධාන සිස්ටම් එක
  */
-async function downloadMedia(m, client, args, isVideo = false) {
+async function coreAudioDownloader({ m, client, args }) {
+    // 🛡️ Fail-Safe Text Message Sender
     const sendMsg = async (text) => {
         try {
-            if (typeof m.reply === "function") await m.reply(text);
-            else await client.sendMessage(m.jid, { text }, { quoted: m });
+            if (typeof m.reply === "function") {
+                await m.reply(text);
+            } else {
+                await client.sendMessage(m.jid, { text }, { quoted: m });
+            }
         } catch (e) {
-            console.error("[X-BOT-MD] Message failed:", e.message);
+            console.error("[SADEW-MD MUSIC] Text reply failed:", e.message);
+            try {
+                await client.sendMessage(m.jid, { text });
+            } catch (err) {
+                console.error("[SADEW-MD MUSIC] Completely failed to send text:", err.message);
+            }
         }
     };
 
@@ -32,139 +42,118 @@ async function downloadMedia(m, client, args, isVideo = false) {
         textInput = textInput || m.quoted?.text || "";
 
         if (!textInput) {
-            return await sendMsg(`🎵 *X-BOT-MD YOUTUBE SYSTEM*\n\nකරුණාකර සින්දුවක නමක් හෝ YouTube ලින්ක් එකක් ලබා දෙන්න.\n\n💡 _උදා: .song master sir_`);
+            return await sendMsg("🎵 කරුණාකර සින්දුවක නමක් හෝ YouTube ලින්ක් එකක් ලබා දෙන්න.\n\n💡 උදා: `.music master sir` හෝ `.music <link> හෝ `.song mithaya mayam`");
         }
 
         try { if (typeof m.react === "function") await m.react("🔎"); } catch {}
 
+        // 1. පරිශීලකයා දුන්නේ ලින්ක් එකක්ද නැත්නම් නමක්ද කියා පරික්ෂා කිරිම
         const checkedUrl = extractYoutubeUrl(textInput);
         let youtubeUrl = null;
-        let mediaTitle = isVideo ? "X-BOT-MD Video" : "X-BOT-MD Audio";
+        let songTitle = "Sadew-MD Audio";
 
-        // 1. RESOLVING INPUT (LINK OR BUILT-IN SEARCH)
         if (checkedUrl) {
+            // ඇතුළත් කළේ කෙලින්ම YouTube ලින්ක් එකක් නම්
             youtubeUrl = checkedUrl;
-            await sendMsg("🔗 _YouTube Link Detected. Processing URL..._");
+            console.log("[SADEW-MD MUSIC] Direct YouTube Link Detected:", youtubeUrl);
+            await sendMsg("🔗 _YouTube direct link detected. Fetching data from server..._");
         } else {
-            await sendMsg(`🔍 _Searching for_ *"${textInput}"* _on YouTube..._`);
-            
+            // ඇතුළත් කළේ සින්දුවක නමක් නම් (WhiteShadow YT Search API)
+            await sendMsg(`🔍 _Searching YouTube for: "${textInput}"..._`);
+            console.log("[KADIYA-MD MUSIC] Searching YT for name:", textInput);
+
             try {
-                // කිසිම API එකක් නැතුව බොට් ඇතුලෙන්ම සෙවීමට yt-search භාවිතය
-                const yts = require("yt-search");
-                const searchResult = await yts(textInput);
-                
-                if (searchResult && searchResult.videos.length > 0) {
-                    const firstResult = searchResult.videos[0];
-                    youtubeUrl = firstResult.url;
-                    mediaTitle = firstResult.title || mediaTitle;
-                    console.log("[X-BOT-MD] Internal Search Success:", youtubeUrl);
+                const searchResponse = await axios.get(`${YT_SEARCH_API}?q=${encodeURIComponent(textInput)}&apitoken=${API_TOKEN}`, { timeout: 20000 });
+
+                if (searchResponse.data?.success && searchResponse.data?.result?.length > 0) {
+                    const bestResult = searchResponse.data.result[0];
+                    youtubeUrl = bestResult.url;
+                    songTitle = bestResult.title || "YouTube Audio";
+                    console.log("[KADIYA-MD MUSIC] Search success. Found URL:", youtubeUrl);
                 }
             } catch (searchErr) {
-                console.error("[X-BOT-MD] Internal Search Library Error:", searchErr.message);
-                
-                // Backup Method: yt-search නැත්නම් සෘජුවම සෙවිය හැකි පොදු ලින්ක් එකක්
-                try {
-                    const backupRes = await axios.get(`https://api.giftedtech.my.id/api/search/youtube?q=${encodeURIComponent(textInput)}`, { timeout: 10000 });
-                    if (backupRes.data?.status === 200 && backupRes.data?.result?.[0]) {
-                        youtubeUrl = backupRes.data.result[0].url;
-                        mediaTitle = backupRes.data.result[0].title || mediaTitle;
-                    }
-                } catch (err) {
-                    console.error("[X-BOT-MD] All Search Methods Failed");
-                }
+                console.error("[KADIYA-MD MUSIC] YT Search API Error:", searchErr.message);
             }
         }
 
-        // ලින්ක් එකක් සොයා ගැනීමට නොහැකි වුවහොත්
+        // යූටියුබ් ලින්ක් එකක් හොයාගන්න බැරි වුණොත්
         if (!youtubeUrl) {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-            return await sendMsg("❌ *Error:* සින්දුව සොයා ගැනීමට නොහැකි විය. කරුණාකර නම නිවැරදිව ටයිප් කරන්න හෝ කෙලින්ම YouTube ලින්ක් එකක් ලබා දෙන්න.");
+            return await sendMsg("❌ *Error:* සින්දුව හෝ වීඩියෝව සොයා ගැනීමට නොහැකි විය. කරුණාකර නම නිවැරදිව ටයිප් කරන්න.");
         }
 
-        // 2. FETCHING DOWNLOAD LINK FROM ZANTA API
-        try { if (typeof m.react === "function") await m.react("📥"); } catch {}
-        await sendMsg(`📥 _Downloading ${isVideo ? "Video (360p)" : "Audio (MP3)"} from Zanta server..._`);
+        // 2. 320kbps MP3 ලින්ක් එක ලබාගැනීම (WhiteShadow YTMP3 API)
+        await sendMsg("📥 _ _*👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥*_ Extracting 320kbps High-Quality MP3 stream..._");
+        console.log(`[KADIYA-MD MUSIC] Triggering Downloader for: ${youtubeUrl}`);
 
-        const type = isVideo ? "mp4" : "mp3";
-        const quality = isVideo ? "360" : "128";
-        
-        const apiUrl = `${BASE_URL}?apiKey=${API_KEY}&url=${encodeURIComponent(youtubeUrl)}&type=${type}&quality=${quality}`;
-        
-        // Zanta API එකට Request එක යැවීම
-        const res = await axios.get(apiUrl, { timeout: 40000 });
+        let audioDownloadUrl = null;
+        let finalTitle = songTitle;
 
-        let downloadUrl = res.data?.result?.downloadUrl || res.data?.downloadUrl || res.data?.result?.url || res.data?.url;
-        
-        if (res.data?.result?.title) mediaTitle = res.data.result.title;
-        else if (res.data?.title) mediaTitle = res.data.title;
+        try {
+            const downloadResponse = await axios.get(`${YT_DOWNLOAD_API}?url=${encodeURIComponent(youtubeUrl)}&quality=320&apitoken=${API_TOKEN}`, { timeout: 40000 });
 
-        if (!downloadUrl) {
+            if (downloadResponse.data?.success && downloadResponse.data?.result?.download_url) {
+                audioDownloadUrl = downloadResponse.data.result.download_url;
+                if (downloadResponse.data.result.title) {
+                    finalTitle = downloadResponse.data.result.title;
+                }
+                console.log("[SADEW-MD MUSIC] API Download URL Success:", audioDownloadUrl);
+            }
+        } catch (dlErr) {
+            console.error("[SADEW-MD MUSIC] YT Download API Error:", dlErr.message);
+        }
+
+        if (!audioDownloadUrl) {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-            return await sendMsg("❌ *Zanta API Error:* සේවාදායකයෙන් බාගත කිරීමේ ලින්ක් එක ලබා දීමට අපොහොසත් විය.");
+            return await sendMsg("❌ *Error:* සේවාදායකයේ බිඳවැටීමක් හේතුවෙන් 320kbps ඕඩියෝ එක ලබා ගැනීමට නොහැකි විය.");
         }
 
-        const cleanFileName = mediaTitle.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60) + `.${type}`;
+        try { if (typeof m.react === "function") await m.react("📥"); } catch {}
 
-        // 3. SENDING THE MEDIA FILE TO WHATSAPP
-        await sendMsg(`✨ *👑 𝙓-𝘽𝙊𝙏-𝙈𝘿 𝙔𝙊𝙐𝙏𝙐𝘽𝙀 👑* ✨\n\n📌 *Title:* ${mediaTitle}\n💿 *Type:* ${type.toUpperCase()}\n🚀 *Status:* Uploading to WhatsApp...`);
+        // 3. WhatsApp Audio පණිවිඩයක් ලෙස ජංගම දුරකථනයට යැවීම
+        const cleanFileName = finalTitle.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60) + ".mp3";
 
-        if (isVideo) {
-            await client.sendMessage(
-                m.jid,
-                {
-                    video: { url: downloadUrl },
-                    mimetype: "video/mp4",
-                    caption: `*📌 ${mediaTitle}*\n\n_Powered by X-Bot-MD_`,
-                    fileName: cleanFileName
-                },
-                { quoted: m }
-            );
-        } else {
-            await client.sendMessage(
-                m.jid,
-                {
-                    audio: { url: downloadUrl },
-                    mimetype: "audio/mpeg",
-                    ptt: false,
-                    fileName: cleanFileName
-                },
-                { quoted: m }
-            );
-        }
+        await sendMsg(`✨ *_👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥_ Music System* ✨\n\n📌 *Title:* ${finalTitle}\n💿 *Quality:* 320kbps Ultra-High Quality\n🚀 *Status:* download via ~*👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥*~`);
+
+        await client.sendMessage(
+            m.jid,
+            {
+                audio: { url: audioDownloadUrl },
+                mimetype: "audio/mpeg", // මොබයිල් ඩිවයිස් වල සුපිරියට වැඩ කරන්න
+                ptt: false,             // සින්දුවක් විදිහටම යන්න
+                fileName: cleanFileName
+            },
+            { quoted: m }
+        );
 
         try { if (typeof m.react === "function") await m.react("✅"); } catch {}
 
     } catch (globalError) {
-        console.error("[X-BOT-MD] CRITICAL ERROR:", globalError);
+        console.error("[KADIYA-MD MUSIC] CRITICAL GLOBAL ERROR:", globalError);
         try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-        
-        if (globalError.response?.status === 500) {
-            await sendMsg("❌ *Zanta API Error (500):* Zanta API සර්වර් එකේ බිඳවැටීමක්. පසුව උත්සාහ කරන්න.");
-        } else {
-            await sendMsg(`❌ *Internal Plugin Error:* ${globalError.message}`);
-        }
+        await sendMsg(`❌ *Kadiya-MD Music Internal Error:* ${globalError.message}`);
     }
 }
 
-// 🎧 Command Registrations
+// 🎧 Commands ලියාපදිංචි කිරීම (ඔයා ඉල්ලපු ඔක්කොම එකම සුපිරි ක්‍රමයට වැඩ කරයි)
+
 Sparky({
     name: "song",
     fromMe: isPublic,
     category: "youtube",
-    desc: "Download YouTube Audio via Zanta API."
-}, async ({ m, client, args }) => await downloadMedia(m, client, args, false));
+    desc: "Search and download 320kbps MP3 audio via name or link."
+}, coreAudioDownloader);
 
 Sparky({
     name: "music",
     fromMe: isPublic,
     category: "youtube",
-    desc: "Download YouTube Audio via Zanta API."
-}, async ({ m, client, args }) => await downloadMedia(m, client, args, false));
+    desc: "Search and download 320kbps MP3 audio via name or link."
+}, coreAudioDownloader);
 
 Sparky({
-    name: "video",
+    name: "yta",
     fromMe: isPublic,
     category: "youtube",
-    desc: "Download YouTube Video via Zanta API."
-}, async ({ m, client, args }) => await downloadMedia(m, client, args, true));
-
+    desc: "Download YouTube audio via link (Supports PC and Mobile app links)."
+}, coreAudioDownloader);
