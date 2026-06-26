@@ -9,7 +9,7 @@ const CARTOON_API_BASE = "https://whiteshadow-x-api.onrender.com/api/movie/sinha
 global.cartoonSession = global.cartoonSession || {};
 
 /**
- * 🛠️ 200% SAFE JSON PARSER
+ * 🛠️ JSON PARSER
  */
 function safeParseJson(data) {
     let parsed = data;
@@ -24,29 +24,23 @@ function safeParseJson(data) {
 }
 
 /**
- * 🔗 URL NORMALIZER & CLEANER (Fixes Status Code 400)
- * ලින්ක් එක දෙපාරක් Encode වීම වළක්වා පිරිසිදු සබැඳියක් සාදයි.
+ * 🔗 URL NORMALIZER & CLEANER
  */
 function cleanAndEncodeUrl(rawUrl) {
     if (!rawUrl || typeof rawUrl !== "string") return "";
-    
     let decodedUrl = rawUrl.trim();
-    // දැනටමත් Encode වී ඇත්නම් එය සම්පූර්ණයෙන්ම Decode කර ගනී
     try {
         while (decodedUrl !== decodeURIComponent(decodedUrl)) {
             decodedUrl = decodeURIComponent(decodedUrl);
         }
     } catch (e) {
-        // Decode කිරීමේදී දෝෂයක් ආවොත් මුල් ලින්ක් එකම තබා ගනී
         decodedUrl = rawUrl.trim();
     }
-    
-    // දැන් නිවැරදිව තනි වතාවක් පමණක් සර්වර් එකට ගැළපෙන සේ Encode කරයි
     return encodeURIComponent(decodedUrl);
 }
 
 /**
- * 📥 ULTRA STABLE VIDEO DOWNLOADER & STREAMER
+ * 📥 ULTRA STABLE VIDEO DOWNLOADER & STREAMER (Fixed 'type' Parameter)
  */
 async function handleCartoonDownload(m, client, selectedIndex) {
     const session = global.cartoonSession[m.sender];
@@ -62,24 +56,26 @@ async function handleCartoonDownload(m, client, selectedIndex) {
     try { if (typeof m.react === "function") await m.react("📥"); } catch {}
     
     const statusMsg = await client.sendMessage(m.jid, { 
-        text: `📥 *"${selectedCartoon.title}"*\n\n_සර්වර් එකෙන් ලින්ක් එක ලබා ගනිමින් පවතී. කරුණාකර රැඳී සිටින්න..._` 
+        text: `📥 *"${selectedCartoon.title}"*\n\n_සර්වර් එකෙන් වීඩියෝ දත්ත ලබා ගනිමින් පවතී. කරුණාකර රැඳී සිටින්න..._` 
     }, { quoted: m });
 
     try {
-        // 🚀 URL එක පිරිසිදු කර 400 Error එක වළක්වා ගැනීම
         const targetUrl = selectedCartoon.link || selectedCartoon.url;
         const encodedTargetUrl = cleanAndEncodeUrl(targetUrl);
 
-        // API Request එක සිදු කිරීම
-        const dlResponse = await axios.get(`${CARTOON_API_BASE}?type=download&url=${encodedTargetUrl}&apitoken=${API_TOKEN}`, { timeout: 90000 });
+        // 🚀 FIX: 'type=download' වෙනුවට API එකට ගැළපෙන 'type=movie' ලබා දීම
+        const dlResponse = await axios.get(`${CARTOON_API_BASE}?type=movie&url=${encodedTargetUrl}&apitoken=${API_TOKEN}`, { timeout: 90000 });
         
         const dlData = safeParseJson(dlResponse.data);
         
+        // API ප්‍රතිඵල ඇතුළෙන් ලින්ක් එක නිවැරදිව වෙන් කර ගැනීම
         let resObj = dlData?.result || dlData?.data || dlData;
-        let downloadUrl = resObj?.download_url || resObj?.downloadUrl || resObj?.url || resObj?.link;
+        
+        // WhiteShadow Movie API එකෙන් සාමාන්‍යයෙන් එන්නේ සෘජු download_url එකක් හෝ එම්බෙඩ් ලින්ක් එකක් විය හැක
+        let downloadUrl = resObj?.download_url || resObj?.downloadUrl || resObj?.url || resObj?.link || resObj?.episodes?.[0]?.url;
 
         if (!downloadUrl || typeof downloadUrl !== "string" || !downloadUrl.startsWith("http")) {
-            throw new Error("නියමිත බාගත කිරීමේ ලින්ක් එකක් සේවාදායකයෙන් හමු නොවීය.");
+            throw new Error("මෙම කාටූන් එක සඳහා නියමිත වීඩියෝ ලින්ක් එකක් සේවාදායකයෙන් හමු නොවීය.");
         }
 
         try {
@@ -102,7 +98,7 @@ async function handleCartoonDownload(m, client, selectedIndex) {
             {
                 video: videoBufferStream.data,
                 mimetype: "video/mp4",
-                caption: `✨ *👑 𝙓-𝘽𝙊𝙏-𝙈𝘿 𝘾𝘼𝙍𝙏𝙊𝙊ﻥ 👑* ✨\n\n📌 *Title:* ${selectedCartoon.title}\n\n_Powered by Kadiya-X-MD_`,
+                caption: `✨ *👑 𝙓-𝘽𝙊𝙏-𝙈𝘿 𝘾𝘼𝙍𝙏𝙊𝙊𝙉 👑* ✨\n\n📌 *Title:* ${selectedCartoon.title}\n\n_Powered by Kadiya-X-MD_`,
                 fileName: cleanFileName
             },
             { quoted: m }
@@ -114,9 +110,8 @@ async function handleCartoonDownload(m, client, selectedIndex) {
         console.error("[KADIYA-MD CARTOON CRITICAL DL ERROR]:", dlErr);
         try { if (typeof m.react === "function") await m.react("❌"); } catch {}
         
-        // සවිස්තරාත්මක දෝෂ පණිවිඩය
         await client.sendMessage(m.jid, { 
-            text: `❌ *Kadiya-MD System Error:* බාගත කිරීම අසාර්ථක විය.\n💡 *හේතුව:* ${dlErr.response?.data?.message || dlErr.message || "සේවාදායකයේ තදබදයක් හෝ ලින්ක් එක බිඳ වැටීමකි."}` 
+            text: `❌ *Kadiya-MD System Error:* බාගත කිරීම අසාර්ථක විය.\n💡 *හේතුව:* ${dlErr.response?.data?.message || dlErr.message || "ලින්ක් එක ලබා ගැනීමේ දෝෂයකි."}` 
         }, { quoted: m });
     }
 }
@@ -150,6 +145,7 @@ Sparky({
         try { if (typeof m.react === "function") await m.react("🔎"); } catch {}
         await sendMsg(`🔍 _Searching sinhalacartoon.lk for: "${textInput}"..._`);
 
+        // සෙවීමේදී 'type=search' නිවැරදිව පාවිච්චි කර ඇත
         const searchResponse = await axios.get(`${CARTOON_API_BASE}?type=search&q=${encodeURIComponent(textInput)}&apitoken=${API_TOKEN}`, { timeout: 20000 });
         
         const searchData = safeParseJson(searchResponse.data);
@@ -166,7 +162,7 @@ Sparky({
             responseText += `${i + 1}. 📌 *${item.title}*\n`;
         });
 
-        responseText += `\n💡 *බාගත කර ගැනීමට:* මෙම මැසේජ් එකට ਰිಪ್ලයි (Reply) කර අවශ්‍ය කාටූන් එකෙහි *අංකය පමණක්* යවන්න. (උදා: 1)`;
+        responseText += `\n💡 *බාගත කර ගැනීමට:* මෙම මැසේජ් එකට රිප්ලයි (Reply) කර අවශ්‍ය කාටූන් එකෙහි *අංකය පමණක්* යවන්න. (උදා: 1)`;
 
         global.cartoonSession[m.sender] = {
             results: results.slice(0, 15),
@@ -185,7 +181,7 @@ Sparky({
 
 
 /**
- * 🧠 2. Context Listener (අංකය පමණක් ਰිಪ್ලයි කළ විට ක්‍රියාත්මක වන කොටස)
+ * 🧠 2. Context Listener (අංකය පමණක් රිප්ලයි කළ විට ක්‍රියාත්මක වන කොටස)
  */
 Sparky({
     on: "text", 
