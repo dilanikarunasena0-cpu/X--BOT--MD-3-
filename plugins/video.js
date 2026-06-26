@@ -159,17 +159,3 @@ Sparky({
     desc: "Search and download High-Quality MP4 video via name or link."
 }, coreVideoDownloader);
 
-Sparky({
-    name: "mp4",
-    fromMe: isPublic,
-    category: "youtube",
-    desc: "Search and download High-Quality MP4 video via name or link."
-}, coreVideoDownloader);
-
-Sparky({
-    name: "ytv",
-    fromMe: isPublic,
-    category: "youtube",
-    desc: "Download YouTube video via link (Supports PC and Mobile app links)."
-}, coreVideoDownloader);
-
