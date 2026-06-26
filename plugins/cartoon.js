@@ -10,7 +10,6 @@ global.cartoonSession = global.cartoonSession || {};
 
 /**
  * 🛠️ 200% SAFE JSON PARSER
- * API එකෙන් මොන ව්‍යුහයකින් දත්ත ආවත් ඒක පිරිසිදු Object එකක් බවට පත් කරයි.
  */
 function safeParseJson(data) {
     let parsed = data;
@@ -22,6 +21,28 @@ function safeParseJson(data) {
         }
     }
     return parsed;
+}
+
+/**
+ * 🔗 URL NORMALIZER & CLEANER (Fixes Status Code 400)
+ * ලින්ක් එක දෙපාරක් Encode වීම වළක්වා පිරිසිදු සබැඳියක් සාදයි.
+ */
+function cleanAndEncodeUrl(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== "string") return "";
+    
+    let decodedUrl = rawUrl.trim();
+    // දැනටමත් Encode වී ඇත්නම් එය සම්පූර්ණයෙන්ම Decode කර ගනී
+    try {
+        while (decodedUrl !== decodeURIComponent(decodedUrl)) {
+            decodedUrl = decodeURIComponent(decodedUrl);
+        }
+    } catch (e) {
+        // Decode කිරීමේදී දෝෂයක් ආවොත් මුල් ලින්ක් එකම තබා ගනී
+        decodedUrl = rawUrl.trim();
+    }
+    
+    // දැන් නිවැරදිව තනි වතාවක් පමණක් සර්වර් එකට ගැළපෙන සේ Encode කරයි
+    return encodeURIComponent(decodedUrl);
 }
 
 /**
@@ -45,42 +66,43 @@ async function handleCartoonDownload(m, client, selectedIndex) {
     }, { quoted: m });
 
     try {
-        // 1. API Request එක සඳහා ඉහළ Timeout එකක් (තත්පර 90ක්) ලබා දීම
-        const dlResponse = await axios.get(`${CARTOON_API_BASE}?type=download&url=${encodeURIComponent(selectedCartoon.link || selectedCartoon.url)}&apitoken=${API_TOKEN}`, { timeout: 90000 });
+        // 🚀 URL එක පිරිසිදු කර 400 Error එක වළක්වා ගැනීම
+        const targetUrl = selectedCartoon.link || selectedCartoon.url;
+        const encodedTargetUrl = cleanAndEncodeUrl(targetUrl);
+
+        // API Request එක සිදු කිරීම
+        const dlResponse = await axios.get(`${CARTOON_API_BASE}?type=download&url=${encodedTargetUrl}&apitoken=${API_TOKEN}`, { timeout: 90000 });
         
         const dlData = safeParseJson(dlResponse.data);
         
-        // 2. සර්වර් එකෙන් එන්න පුළුවන් හැම Key එකක්ම Check කිරීම (Multi-Key Extractor)
         let resObj = dlData?.result || dlData?.data || dlData;
         let downloadUrl = resObj?.download_url || resObj?.downloadUrl || resObj?.url || resObj?.link;
 
-        // සැබෑ ලින්ක් එකක්දැයි තහවුරු කර ගැනීම
         if (!downloadUrl || typeof downloadUrl !== "string" || !downloadUrl.startsWith("http")) {
             throw new Error("නියමිත බාගත කිරීමේ ලින්ක් එකක් සේවාදායකයෙන් හමු නොවීය.");
         }
 
-        // 3. වීඩියෝව සෘජුවම යැවීමට පෙර, status එක අප්ඩේට් කිරීම
         try {
             await client.sendMessage(m.jid, { text: "🚀 _වීඩියෝ දත්ත සාර්ථකව ලැබුණා! දැන් WhatsApp වෙත අප්ලෝඩ් වෙමින් පවතී..._" }, { quoted: statusMsg });
         } catch {}
 
         const cleanFileName = selectedCartoon.title.replace(/[\\/:*?"<>|]/g, "_").slice(0, 50) + ".mp4";
 
-        // 4. STABLE BUFFER METHOD (සෘජු URL එක WhatsApp එකට දීමේදී සිදුවන බිඳවැටීම් 100% වළකයි)
+        // STABLE BUFFER STREAM METHOD
         const videoBufferStream = await axios({
             method: 'get',
             url: downloadUrl.trim(),
             responseType: 'stream',
-            timeout: 120000 // ලොකු ෆයිල් වලට සරිලන සේ තත්පර 120ක් දීම
+            timeout: 120000
         });
 
         // 🎬 වීඩියෝව සාර්ථකව WhatsApp වෙත මුදා හැරීම
         await client.sendMessage(
             m.jid,
             {
-                video: videoBufferStream.data, // Stream දත්ත කෙලින්ම පාස් කිරීම
+                video: videoBufferStream.data,
                 mimetype: "video/mp4",
-                caption: `✨ *👑 𝙓-𝘽𝙊𝙏-𝙈𝘿 𝘾𝘼𝙍𝙏𝙊𝙊𝙉 👑* ✨\n\n📌 *Title:* ${selectedCartoon.title}\n\n_Powered by Kadiya-X-MD_`,
+                caption: `✨ *👑 𝙓-𝘽𝙊𝙏-𝙈𝘿 𝘾𝘼𝙍𝙏𝙊𝙊ﻥ 👑* ✨\n\n📌 *Title:* ${selectedCartoon.title}\n\n_Powered by Kadiya-X-MD_`,
                 fileName: cleanFileName
             },
             { quoted: m }
@@ -92,9 +114,9 @@ async function handleCartoonDownload(m, client, selectedIndex) {
         console.error("[KADIYA-MD CARTOON CRITICAL DL ERROR]:", dlErr);
         try { if (typeof m.react === "function") await m.react("❌"); } catch {}
         
-        // Error එක විස්තරාත්මකව යූසර්ට පෙන්වීම (Fixing the blind spot)
+        // සවිස්තරාත්මක දෝෂ පණිවිඩය
         await client.sendMessage(m.jid, { 
-            text: `❌ *Kadiya-MD System Error:* බාගත කිරීම අසාර්ථක විය.\n💡 *හේතුව:* ${dlErr.message || "සේවාදායකයේ තදබදයක් හෝ ලින්ක් එක බිඳ වැටීමකි."}` 
+            text: `❌ *Kadiya-MD System Error:* බාගත කිරීම අසාර්ථක විය.\n💡 *හේතුව:* ${dlErr.response?.data?.message || dlErr.message || "සේවාදායකයේ තදබදයක් හෝ ලින්ක් එක බිඳ වැටීමකි."}` 
         }, { quoted: m });
     }
 }
@@ -117,7 +139,6 @@ Sparky({
         let textInput = Array.isArray(args) ? args.join(" ").trim() : String(args || "").trim();
         textInput = textInput || m.quoted?.text || "";
 
-        // කමාන්ඩ් එක සමඟම අංකය දුන්නොත් ක්‍රියාත්මක වන කොටස
         if (textInput && !isNaN(textInput) && global.cartoonSession[m.sender]) {
             return await handleCartoonDownload(m, client, parseInt(textInput));
         }
@@ -139,14 +160,13 @@ Sparky({
             return await sendMsg("❌ *Error:* ඔබ ඇතුළත් කළ නමට ගැලපෙන කිසිදු සිංහල කාටූන් එකක් හමු නොවීය.");
         }
 
-        // ප්‍රතිඵල ලැයිස්තුව සකස් කිරීම
         let responseText = `✨ *_👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥_ 𝘾𝘼𝙍𝙏𝙊𝙊𝙉 𝙎𝙀𝘼𝙍𝘾𝙃* ✨\n\n🔍 ප්‍රතිඵල *"${textInput}"* සඳහා:\n\n`;
         
         results.slice(0, 15).forEach((item, i) => {
             responseText += `${i + 1}. 📌 *${item.title}*\n`;
         });
 
-        responseText += `\n💡 *බාගත කර ගැනීමට:* මෙම මැසේජ් එකට රිප්ලයි (Reply) කර අවශ්‍ය කාටූන් එකෙහි *අංකය පමණක්* යවන්න. (උදා: 1)`;
+        responseText += `\n💡 *බාගත කර ගැනීමට:* මෙම මැසේජ් එකට ਰිಪ್ලයි (Reply) කර අවශ්‍ය කාටූන් එකෙහි *අංකය පමණක්* යවන්න. (උදා: 1)`;
 
         global.cartoonSession[m.sender] = {
             results: results.slice(0, 15),
@@ -165,7 +185,7 @@ Sparky({
 
 
 /**
- * 🧠 2. Context Listener (අංකය පමණක් රිප්ලයි කළ විට ක්‍රියාත්මක වන කොටස)
+ * 🧠 2. Context Listener (අංකය පමණක් ਰිಪ್ලයි කළ විට ක්‍රියාත්මක වන කොටස)
  */
 Sparky({
     on: "text", 
@@ -179,7 +199,6 @@ Sparky({
 
         const selectedNumber = parseInt(replyText);
         
-        // Session Valid Time: Minutes 5
         if (Date.now() - global.cartoonSession[m.sender].time > 300000) {
             delete global.cartoonSession[m.sender];
             return;
@@ -191,3 +210,4 @@ Sparky({
         console.error("[CARTOON LISTENER ERROR]:", err.message);
     }
 });
+
