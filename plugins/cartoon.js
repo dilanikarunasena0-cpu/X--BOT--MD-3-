@@ -40,7 +40,46 @@ function cleanAndEncodeUrl(rawUrl) {
 }
 
 /**
- * 📥 ULTRA STABLE VIDEO DOWNLOADER & STREAMER (Fixed 'type' Parameter)
+ * 📥 DEEP LINK EXTRACTOR (200% FIX FOR ALL HIDDEN KEYS)
+ * API එකෙන් ලැබෙන ප්‍රතිඵලය ඇතුළේ ලින්ක් එක කොතැන තිබුණත් එය සොයා ගනී.
+ */
+function extractDownloadUrl(resObj) {
+    if (!resObj || typeof resObj !== "object") return null;
+
+    // 1. Direct Primary Keys
+    let directLink = resObj.download_url || resObj.downloadUrl || resObj.url || resObj.link || resObj.download;
+    if (directLink && typeof directLink === "string" && directLink.startsWith("http")) return directLink.trim();
+
+    // 2. Scan inside 'episodes' Array (WhiteShadow Movie API Standard)
+    if (resObj.episodes && Array.isArray(resObj.episodes) && resObj.episodes.length > 0) {
+        let ep = resObj.episodes[0];
+        let epLink = ep.url || ep.link || ep.download_url || ep.downloadUrl;
+        if (epLink && typeof epLink === "string" && epLink.startsWith("http")) return epLink.trim();
+    }
+
+    // 3. Scan inside 'links' Array
+    if (resObj.links && Array.isArray(resObj.links) && resObj.links.length > 0) {
+        let lnk = resObj.links[0];
+        let lnkUrl = lnk.url || lnk.link || lnk.download_url;
+        if (lnkUrl && typeof lnkUrl === "string" && lnkUrl.startsWith("http")) return lnkUrl.trim();
+    }
+
+    // 4. Global Object Search (Deep Scan Rule)
+    // Object එක පුරාම කරකවා "http" වලින් පටන් ගන්නා සැබෑ ලින්ක් එකක් ඇත්දැයි බැලීම
+    for (let key in resObj) {
+        if (typeof resObj[key] === "string" && resObj[key].startsWith("http")) {
+            // Stream හෝ වීඩියෝ ලින්ක් එකක් වීමේ සම්භාවිතාව බැලීම
+            if (resObj[key].includes("drive") || resObj[key].includes("mega") || resObj[key].includes("video") || resObj[key].includes(".mp4") || resObj[key].includes("download") || resObj[key].includes("stream")) {
+                return resObj[key].trim();
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * 📥 ULTRA STABLE VIDEO DOWNLOADER & STREAMER
  */
 async function handleCartoonDownload(m, client, selectedIndex) {
     const session = global.cartoonSession[m.sender];
@@ -63,19 +102,26 @@ async function handleCartoonDownload(m, client, selectedIndex) {
         const targetUrl = selectedCartoon.link || selectedCartoon.url;
         const encodedTargetUrl = cleanAndEncodeUrl(targetUrl);
 
-        // 🚀 FIX: 'type=download' වෙනුවට API එකට ගැළපෙන 'type=movie' ලබා දීම
+        // API Request
         const dlResponse = await axios.get(`${CARTOON_API_BASE}?type=movie&url=${encodedTargetUrl}&apitoken=${API_TOKEN}`, { timeout: 90000 });
         
         const dlData = safeParseJson(dlResponse.data);
-        
-        // API ප්‍රතිඵල ඇතුළෙන් ලින්ක් එක නිවැරදිව වෙන් කර ගැනීම
         let resObj = dlData?.result || dlData?.data || dlData;
         
-        // WhiteShadow Movie API එකෙන් සාමාන්‍යයෙන් එන්නේ සෘජු download_url එකක් හෝ එම්බෙඩ් ලින්ක් එකක් විය හැක
-        let downloadUrl = resObj?.download_url || resObj?.downloadUrl || resObj?.url || resObj?.link || resObj?.episodes?.[0]?.url;
+        // 🚀 DEEP LINK SCANNER TRIGERED
+        let downloadUrl = extractDownloadUrl(resObj);
 
-        if (!downloadUrl || typeof downloadUrl !== "string" || !downloadUrl.startsWith("http")) {
-            throw new Error("මෙම කාටූන් එක සඳහා නියමිත වීඩියෝ ලින්ක් එකක් සේවාදායකයෙන් හමු නොවීය.");
+        if (!downloadUrl) {
+            // මුළු Response එකම String එකක් විදිහට පරීක්ෂා කිරීම (Last Line of Defense)
+            const rawString = JSON.stringify(dlData);
+            const match = rawString.match(/"(https?:\/\/[^"]+\.(?:mp4|mkv|mov|download|stream)[^"]*)"/i);
+            if (match && match[1]) {
+                downloadUrl = match[1].replace(/\\/g, '');
+            }
+        }
+
+        if (!downloadUrl) {
+            throw new Error("මෙම කාටූන් එක සඳහා සෘජු වීඩියෝ සබැඳියක් වෙන් කර ගැනීමට නොහැකි විය. (No Valid Video Link Found)");
         }
 
         try {
@@ -111,7 +157,7 @@ async function handleCartoonDownload(m, client, selectedIndex) {
         try { if (typeof m.react === "function") await m.react("❌"); } catch {}
         
         await client.sendMessage(m.jid, { 
-            text: `❌ *Kadiya-MD System Error:* බාගත කිරීම අසාර්ථක විය.\n💡 *හේතුව:* ${dlErr.response?.data?.message || dlErr.message || "ලින්ක් එක ලබා ගැනීමේ දෝෂයකි."}` 
+            text: `❌ *Kadiya-MD System Error:* බාගත කිරීම අසාර්ථක විය.\n💡 *හේතුව:* ${dlErr.message || "ලින්ක් එක ලබා ගැනීමේ දෝෂයකි."}` 
         }, { quoted: m });
     }
 }
@@ -145,7 +191,6 @@ Sparky({
         try { if (typeof m.react === "function") await m.react("🔎"); } catch {}
         await sendMsg(`🔍 _Searching sinhalacartoon.lk for: "${textInput}"..._`);
 
-        // සෙවීමේදී 'type=search' නිවැරදිව පාවිච්චි කර ඇත
         const searchResponse = await axios.get(`${CARTOON_API_BASE}?type=search&q=${encodeURIComponent(textInput)}&apitoken=${API_TOKEN}`, { timeout: 20000 });
         
         const searchData = safeParseJson(searchResponse.data);
@@ -156,7 +201,7 @@ Sparky({
             return await sendMsg("❌ *Error:* ඔබ ඇතුළත් කළ නමට ගැලපෙන කිසිදු සිංහල කාටූන් එකක් හමු නොවීය.");
         }
 
-        let responseText = `✨ *_👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥_ 𝘾𝘼𝙍𝙏𝙊𝙊𝙉 𝙎𝙀𝘼𝙍𝘾𝙃* ✨\n\n🔍 ප්‍රතිඵල *"${textInput}"* සඳහා:\n\n`;
+        let responseText = `✨ *_👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥_ 𝘾𝘼𝙍𝙏𝙊𝙊𝙉 𝙎𝙀𝘼𝙍𝘾𝕙* ✨\n\n🔍 ප්‍රතිඵල *"${textInput}"* සඳහා:\n\n`;
         
         results.slice(0, 15).forEach((item, i) => {
             responseText += `${i + 1}. 📌 *${item.title}*\n`;
