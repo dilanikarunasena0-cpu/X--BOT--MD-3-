@@ -2,8 +2,8 @@ const { Sparky, isPublic } = require("../lib");
 
 // 💳 Premium පාවිච්චි කරන්න අවසර ඇති අයගේ ලිස්ට් එක (නම්බර් හෝ Session ID)
 const PREMIUM_USERS = [
-    "94771234567@s.whatsapp.net", // සල්ලි ගෙවපු අයගේ WhatsApp JID එක
-    "SESSION_ABC123"
+    "94767231838@s.whatsapp.net", // සල්ලි ගෙවපු අයගේ WhatsApp JID එක
+    "A-S-W-I-N-S-P-A-R-K-Y:ec8de669097ad9d448dbd823526b3c8b"
 ];
 
 Sparky({
