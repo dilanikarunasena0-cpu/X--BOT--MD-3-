@@ -8,7 +8,7 @@ const TT_API_BASE = "https://nntech-free-tt-api.vercel.app/api/tiktok/mp4";
  * 📱 ටික්ටොක් ලින්ක් එක නිවැරදිව වෙන්කර හඳුනාගන්නා Regex ශ්‍රිතය
  */
 function extractTikTokUrl(text) {
-    const regex = /(https?:\/\/(?:vm\.tiktok\.com|vt\.tiktok\.com|v\.tiktok\.com|www\.tiktok\.com)\/[^\s?#]+)/i;
+    const regex = /(https?:\/\/(?:vm\.tiktok\.com|vt\.tiktok\.com|v\.tiktok\.com|www\.tiktok\.com|[\w-]+\.tiktok\.com)\/[^\s?#]+)/i;
     const match = String(text || "").match(regex);
     return match ? match[0].trim() : null;
 }
@@ -54,11 +54,10 @@ async function tiktokAudioDownloader({ m, client, args }) {
             return await sendMsg("🎵 කරුණාකර වලංගු TikTok වීඩියෝ ලින්ක් එකක් ලබා දෙන්න.\n\n💡 උදා: `.ttmp3 https://vm.tiktok.com/xxxxxx/` \n(නැතහොත් ටික්ටොක් ලින්ක් එකක් ඇති මැසේජ් එකකට රිප්ලයි කරන්න.)");
         }
 
-        // 1. ටික්ටොක් ලින්ක් එකක්දැයි පරීක්ෂා කිරීම
         const checkedUrl = extractTikTokUrl(textInput);
         if (!checkedUrl) {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-            return await sendMsg("❌ *Error:* කරුණාකර වලංගු TikTok සබැඳියක් (Link) පමණක් ලබා දෙන්න. සෙවුම් වචන (Search words) වලංගු නොවේ.");
+            return await sendMsg("❌ *Error:* කරුණාකර වලංගු TikTok සබැඳියක් (Link) පමණක් ලබා දෙන්න.");
         }
 
         try { if (typeof m.react === "function") await m.react("🔎"); } catch {}
@@ -70,25 +69,36 @@ async function tiktokAudioDownloader({ m, client, args }) {
         const apiResponse = await axios.get(`${TT_API_BASE}?url=${encodeURIComponent(checkedUrl)}`, { timeout: 35000 });
         const resData = safeParseJson(apiResponse.data);
 
-        // API Response එකේ හැසිරීම අනුව දත්ත වෙන් කරගැනීම
         let resObj = resData?.result || resData?.data || resData;
         
-        // API එකෙන් එන Audio/Music ලින්ක් එක හඳුනා ගැනීම (music, audio, play, download_url)
+        // 🚀 SMART AUDIO LINK PARSING (WhiteShadow & NNTech Keys)
         let audioDownloadUrl = resObj?.music || resObj?.audio || resObj?.music_info?.play || resObj?.play_audio || resObj?.download_url;
         let videoTitle = resObj?.title || resObj?.title_audio || `TikTok Audio - ${m.sender.split("@")[0]}`;
 
+        // 🛡️ 200% FAIL-SAFE FALLBACK: සෘජු ඕඩියෝ ලින්ක් එකක් නැතිනම් වීඩියෝ ලින්ක් එක (play/hdplay/wmplay) ඕඩියෝ එකක් ලෙස ස්ට්‍රීම් කිරීම
         if (!audioDownloadUrl || typeof audioDownloadUrl !== "string" || !audioDownloadUrl.startsWith("http")) {
-            // Fallback: සමහරවිට කෙලින්ම audio එක නැතිනම් වීඩියෝ ලින්ක් එකෙන් Audio එක සෑදීමට උත්සාහ කරයි
-            audioDownloadUrl = resObj?.play || resObj?.url || resObj?.link;
-            if (!audioDownloadUrl) {
-                throw new Error("සේවාදායකයෙන් MP3/Audio සබැඳිය වෙන් කර ගැනීමට නොහැකි විය.");
+            console.log("[KADIYA-MD TT-MP3] Direct audio key not found. Activating video-to-audio failover...");
+            audioDownloadUrl = resObj?.play || resObj?.hdplay || resObj?.wmplay || resObj?.url || resObj?.link;
+        }
+
+        // අවසාන පරීක්ෂාව - කිසිම ලින්ක් එකක් නැත්නම් JSON එක පුරාම "http" ලින්ක් සෙවීම
+        if (!audioDownloadUrl || typeof audioDownloadUrl !== "string" || !audioDownloadUrl.startsWith("http")) {
+            for (let key in resObj) {
+                if (typeof resObj[key] === "string" && resObj[key].startsWith("http")) {
+                    audioDownloadUrl = resObj[key];
+                    break;
+                }
             }
+        }
+
+        if (!audioDownloadUrl || typeof audioDownloadUrl !== "string" || !audioDownloadUrl.startsWith("http")) {
+            throw new Error("සේවාදායකයේ දත්ත ව්‍යුහය (Data Structure) වෙනස් වීම නිසා ලින්ක් එක වෙන් කර ගත නොහැකි විය.");
         }
 
         try { if (typeof m.react === "function") await m.react("📥"); } catch {}
         await sendMsg(`✨ *_👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥_ TikTok System* ✨\n\n📌 *Title:* ${videoTitle}\n💿 *Format:* MP3 Audio\n🚀 *Status:* uploading via ~*👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥*~`);
 
-        // 3. STABLE BUFFER STREAM METHOD (අතරමඟ බිඳවැටීම් සහ timeout 200% වළකයි)
+        // 3. STABLE BUFFER STREAM METHOD
         const audioBufferStream = await axios({
             method: 'get',
             url: audioDownloadUrl.trim(),
@@ -98,14 +108,14 @@ async function tiktokAudioDownloader({ m, client, args }) {
 
         const cleanFileName = videoTitle.replace(/[\\/:*?"<>|]/g, "_").slice(0, 50) + ".mp3";
 
-        // 🎬 Audio එක සාර්ථකව WhatsApp වෙත මුදා හැරීම
+        // 🎬 Audio එක සාර්ථකව WhatsApp වෙත මුදා හැරීම (Mimetype එක audio/mp4 ලෙස දීමෙන් වීඩියෝ ෆයිල් වුවද ඕඩියෝ ලෙස ප්ලේ වේ)
         await client.sendMessage(
             m.jid,
             {
-                audio: audioBufferStream.data, // Live Stream Object එක කෙලින්ම පාස් කිරීම
-                mimetype: "audio/mp4", // High compatibilty for mobile players
+                audio: audioBufferStream.data, 
+                mimetype: "audio/mp4", 
                 fileName: cleanFileName,
-                ptt: false // Voice note එකක් නෙවෙයි සාමාන්‍ය Audio ෆයිල් එකක් විදිහට යැවීමට
+                ptt: false 
             },
             { quoted: m }
         );
@@ -119,10 +129,17 @@ async function tiktokAudioDownloader({ m, client, args }) {
     }
 }
 
-// 🎬 Commands ලියාපදිංචි කිරීම (කමාන්ඩ්ස් 2ම එකම සුපිරි ක්‍රමයට වැඩ කරයි)
+// 🎬 Commands ලියාපදිංචි කිරීම
 
 Sparky({
     name: "ttmp3",
+    fromMe: isPublic,
+    category: "download",
+    desc: "Download TikTok video's background music/audio as MP3."
+}, tiktokAudioDownloader);
+
+Sparky({
+    name: "ttaudio",
     fromMe: isPublic,
     category: "download",
     desc: "Download TikTok video's background music/audio as MP3."
