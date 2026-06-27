@@ -57,7 +57,7 @@ Sparky({
             time: Date.now()
         };
 
-        let responseText = `✨ *👑 𝙓-𝘽0𝙏-𝙈𝘿 𝙏𝙀𝙈𝙋 𝙈𝘼𝙄𝙇 👑* ✨\n\n`;
+        let responseText = `✨ *👑 𝙓-𝙆𝘼𝘿𝙄𝙔𝘼-𝙈𝘿 𝙏𝙀𝙈𝙋 𝙈𝘼𝙄𝙇 👑* ✨\n\n`;
         responseText += `📌 *Your Temp Mail:* \`${generatedEmail.trim()}\`\n\n`;
         responseText += `💡 *Inbox එක පරීක්ෂා කිරීමට:* \`.checkmail\` කමාන්ඩ් එක භාවිතා කරන්න.\n`;
         responseText += `_Note: මෙම ඊමේල් ලිපිනය මිනිත්තු 45ක් යනතුරු සක්‍රීයව පවතී._`;
@@ -118,7 +118,7 @@ Sparky({
             return await sendMsg(`📥 *Inbox Empty:* \`${targetMail}\` සඳහා තවමත් කිසිදු පණිවිඩයක් ලැබී නැත.`);
         }
 
-        let inboxText = `✨ *👑 𝙓-𝘽𝙊𝙏-𝙈𝘿 𝙈𝘼𝙄𝙇 𝙄𝙉𝘽𝙊𝙓 👑* ✨\n\n`;
+        let inboxText = `✨ *👑 𝙓-𝙆𝘼𝘿𝙄𝙔𝘼-𝙈𝘿 𝙈𝘼𝙄𝙇 𝙄𝙉𝘽𝙊𝙓 👑* ✨\n\n`;
         inboxText += `📧 *Mail:* \`${targetMail}\`\n📬 *Total Messages:* ${messages.length}\n\n`;
         inboxText += `--- --- --- --- --- --- --- ---\n\n`;
 
