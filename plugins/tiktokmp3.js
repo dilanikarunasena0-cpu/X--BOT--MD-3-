@@ -71,48 +71,40 @@ async function tiktokAudioDownloader({ m, client, args }) {
 
         let resObj = resData?.result || resData?.data || resData;
         
-        // 🚀 SMART AUDIO LINK PARSING (WhiteShadow & NNTech Keys)
+        // SMART AUDIO LINK PARSING
         let audioDownloadUrl = resObj?.music || resObj?.audio || resObj?.music_info?.play || resObj?.play_audio || resObj?.download_url;
         let videoTitle = resObj?.title || resObj?.title_audio || `TikTok Audio - ${m.sender.split("@")[0]}`;
 
-        // 🛡️ 200% FAIL-SAFE FALLBACK: සෘජු ඕඩියෝ ලින්ක් එකක් නැතිනම් වීඩියෝ ලින්ක් එක (play/hdplay/wmplay) ඕඩියෝ එකක් ලෙස ස්ට්‍රීම් කිරීම
+        // FAIL-SAFE FALLBACK
         if (!audioDownloadUrl || typeof audioDownloadUrl !== "string" || !audioDownloadUrl.startsWith("http")) {
             console.log("[KADIYA-MD TT-MP3] Direct audio key not found. Activating video-to-audio failover...");
             audioDownloadUrl = resObj?.play || resObj?.hdplay || resObj?.wmplay || resObj?.url || resObj?.link;
         }
 
-        // අවසාන පරීක්ෂාව - කිසිම ලින්ක් එකක් නැත්නම් JSON එක පුරාම "http" ලින්ක් සෙවීම
         if (!audioDownloadUrl || typeof audioDownloadUrl !== "string" || !audioDownloadUrl.startsWith("http")) {
-            for (let key in resObj) {
-                if (typeof resObj[key] === "string" && resObj[key].startsWith("http")) {
-                    audioDownloadUrl = resObj[key];
-                    break;
-                }
-            }
-        }
-
-        if (!audioDownloadUrl || typeof audioDownloadUrl !== "string" || !audioDownloadUrl.startsWith("http")) {
-            throw new Error("සේවාදායකයේ දත්ත ව්‍යුහය (Data Structure) වෙනස් වීම නිසා ලින්ක් එක වෙන් කර ගත නොහැකි විය.");
+            throw new Error("සේවාදායකයෙන් වීඩියෝ හෝ ඕඩියෝ ලින්ක් එකක් වෙන් කර ගත නොහැකි විය.");
         }
 
         try { if (typeof m.react === "function") await m.react("📥"); } catch {}
         await sendMsg(`✨ *_👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥_ TikTok System* ✨\n\n📌 *Title:* ${videoTitle}\n💿 *Format:* MP3 Audio\n🚀 *Status:* uploading via ~*👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥*~`);
 
-        // 3. STABLE BUFFER STREAM METHOD
-        const audioBufferStream = await axios({
+        // 🚀 FIX: Stream Object එක කෙලින්ම නොයවා 'arraybuffer' එකක් විදිහට Memory එකට ගන්නවා (ENOENT Fix)
+        const audioResponse = await axios({
             method: 'get',
             url: audioDownloadUrl.trim(),
-            responseType: 'stream',
+            responseType: 'arraybuffer',
             timeout: 60000
         });
 
+        // දත්ත ටික සැබෑ Node.js Buffer එකක් බවට හැරවීම
+        const audioBuffer = Buffer.from(audioResponse.data);
         const cleanFileName = videoTitle.replace(/[\\/:*?"<>|]/g, "_").slice(0, 50) + ".mp3";
 
-        // 🎬 Audio එක සාර්ථකව WhatsApp වෙත මුදා හැරීම (Mimetype එක audio/mp4 ලෙස දීමෙන් වීඩියෝ ෆයිල් වුවද ඕඩියෝ ලෙස ප්ලේ වේ)
+        // 🎬 Audio එක සාර්ථකව WhatsApp වෙත මුදා හැරීම
         await client.sendMessage(
             m.jid,
             {
-                audio: audioBufferStream.data, 
+                audio: audioBuffer, // 👈 දැන් යන්නේ 100% ක් පිරිසිදු දත්ත Buffer එකක්
                 mimetype: "audio/mp4", 
                 fileName: cleanFileName,
                 ptt: false 
