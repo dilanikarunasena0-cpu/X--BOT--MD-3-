@@ -24,7 +24,11 @@ async function tiktokAudioDownloader({ m, client, args }) {
     };
 
     try {
-        let textInput = args ? args.join(" ").trim() : "";
+        // 🚀 FIX: args.join is not a function බග් එක වැළැක්වීමේ Fail-safe ක්‍රමය
+        let textInput = "";
+        if (args) {
+            textInput = Array.isArray(args) ? args.join(" ").trim() : String(args).trim();
+        }
         textInput = textInput || m.quoted?.text || "";
 
         if (!textInput) {
@@ -49,7 +53,7 @@ async function tiktokAudioDownloader({ m, client, args }) {
         
         const resObj = resData?.result || resData?.data || resData;
 
-        // 🎯 100% නිවැරදි Keys පරීක්ෂාව
+        // 🎯 Keys පරීක්ෂාව
         let audioUrl = resObj?.music || resObj?.audio || resObj?.music_info?.play || resObj?.play_audio;
         let videoTitle = resObj?.title || `TikTok Audio - ${m.sender.split("@")[0]}`;
 
@@ -65,7 +69,7 @@ async function tiktokAudioDownloader({ m, client, args }) {
         try { if (typeof m.react === "function") await m.react("📥"); } catch {}
         await sendMsg(`✨ *_👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥_ TikTok System* ✨\n\n📌 *Title:* ${videoTitle}\n💿 *Format:* MP3 Audio\n🚀 *Status:* uploading via ~*👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥*~`);
 
-        // 🚀 arraybuffer ක්‍රමයට RAM එකට බාගත කිරීම (ENOENT Error එක 100% ක්ම නැතිවේ)
+        // arraybuffer ක්‍රමයට RAM එකට බාගත කිරීම
         const audioRes = await axios({
             method: 'get',
             url: audioUrl.trim(),
@@ -81,9 +85,9 @@ async function tiktokAudioDownloader({ m, client, args }) {
             m.jid,
             {
                 audio: audioBuffer,
-                mimetype: "audio/mp4", // ජංගම දුරකථන වල ගැළපීම සඳහා audio/mp4 භාවිත කරයි
+                mimetype: "audio/mp4", 
                 fileName: cleanFileName,
-                ptt: false // Voice note එකක් නෙවෙයි (Audio File එකක්)
+                ptt: false 
             },
             { quoted: m }
         );
