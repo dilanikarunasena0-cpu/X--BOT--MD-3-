@@ -1,17 +1,8 @@
 const { Sparky, isPublic } = require("../lib");
 const axios = require("axios");
 
-// 🌐 TikTok API Configurations
+// 🌐 TikTok API Configuration
 const TT_API_BASE = "https://nntech-free-tt-api.vercel.app/api/tiktok/mp4";
-
-/**
- * 📱 ටික්ටොක් ලින්ක් එක නිවැරදිව වෙන්කර හඳුනාගන්නා Regex ශ්‍රිතය
- */
-function extractTikTokUrl(text) {
-    const regex = /(https?:\/\/(?:vm\.tiktok\.com|vt\.tiktok\.com|v\.tiktok\.com|www\.tiktok\.com|[\w-]+\.tiktok\.com)\/[^\s?#]+)/i;
-    const match = String(text || "").match(regex);
-    return match ? match[0].trim() : null;
-}
 
 /**
  * 🛠️ SAFE JSON PARSER
@@ -19,110 +10,94 @@ function extractTikTokUrl(text) {
 function safeParseJson(data) {
     let parsed = data;
     while (typeof parsed === "string") {
-        try {
-            parsed = JSON.parse(parsed);
-        } catch (e) {
-            break;
-        }
+        try { parsed = JSON.parse(parsed); } catch (e) { break; }
     }
     return parsed;
 }
 
 /**
- * 🎵 ටික්ටොක් වීඩියෝවෙන් MP3 වෙන් කර ලබාදෙන ප්‍රධාන පද්ධතිය
+ * 🎵 TikTok Audio Downloader Core System
  */
 async function tiktokAudioDownloader({ m, client, args }) {
-    
-    // 🛡️ Fail-Safe Text Message Sender
     const sendMsg = async (text) => {
-        try {
-            if (typeof m.reply === "function") {
-                await m.reply(text);
-            } else {
-                await client.sendMessage(m.jid, { text }, { quoted: m });
-            }
-        } catch (e) {
-            console.error("[KADIYA-MD TT-MP3] Text reply failed:", e.message);
-        }
+        try { await client.sendMessage(m.jid, { text }, { quoted: m }); } catch (e) {}
     };
 
     try {
-        let textInput = Array.isArray(args) ? args.join(" ").trim() : String(args || "").trim();
+        let textInput = args ? args.join(" ").trim() : "";
         textInput = textInput || m.quoted?.text || "";
 
         if (!textInput) {
-            return await sendMsg("🎵 කරුණාකර වලංගු TikTok වීඩියෝ ලින්ක් එකක් ලබා දෙන්න.\n\n💡 උදා: `.ttmp3 https://vm.tiktok.com/xxxxxx/` \n(නැතහොත් ටික්ටොක් ලින්ක් එකක් ඇති මැසේජ් එකකට රිප්ලයි කරන්න.)");
+            return await sendMsg("🎵 *KADIYA-X-MD TIKTOK MP3*\n\nකරුණාකර වලංගු TikTok ලින්ක් එකක් ලබා දෙන්න.\n\n💡 _උදා: .ttmp3 https://vm.tiktok.com/xxxxxx/_");
         }
 
-        const checkedUrl = extractTikTokUrl(textInput);
-        if (!checkedUrl) {
+        // 📌 ලින්ක් එක පිරිසිදුව වෙන් කර ගැනීම
+        const match = textInput.match(/(https?:\/\/(?:vm\.tiktok\.com|vt\.tiktok\.com|v\.tiktok\.com|www\.tiktok\.com|[\w-]+\.tiktok\.com)\/[^\s?#]+)/i);
+        const tiktokUrl = match ? match[0].trim() : null;
+
+        if (!tiktokUrl) {
             try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-            return await sendMsg("❌ *Error:* කරුණාකර වලංගු TikTok සබැඳියක් (Link) පමණක් ලබා දෙන්න.");
+            return await sendMsg("❌ *Error:* කරුණාකර වලංගු TikTok ලින්ක් එකක් පමණක් ලබා දෙන්න.");
         }
 
         try { if (typeof m.react === "function") await m.react("🔎"); } catch {}
-        await sendMsg("🔗 _TikTok link detected. Fetching audio data from server..._");
+        await sendMsg("🔗 _TikTok සබැඳිය හඳුනාගත්තා. දත්ත ලබා ගනිමින් පවතී..._");
 
-        console.log("[KADIYA-MD TT-MP3] Requesting API for:", checkedUrl);
-
-        // 2. NNTech Free TT API එකට Request එක යැවීම
-        const apiResponse = await axios.get(`${TT_API_BASE}?url=${encodeURIComponent(checkedUrl)}`, { timeout: 35000 });
-        const resData = safeParseJson(apiResponse.data);
-
-        let resObj = resData?.result || resData?.data || resData;
+        // 🚀 API එකට Request එක යැවීම
+        const response = await axios.get(`${TT_API_BASE}?url=${encodeURIComponent(tiktokUrl)}`, { timeout: 35000 });
+        const resData = safeParseJson(response.data);
         
-        // SMART AUDIO LINK PARSING
-        let audioDownloadUrl = resObj?.music || resObj?.audio || resObj?.music_info?.play || resObj?.play_audio || resObj?.download_url;
-        let videoTitle = resObj?.title || resObj?.title_audio || `TikTok Audio - ${m.sender.split("@")[0]}`;
+        const resObj = resData?.result || resData?.data || resData;
 
-        // FAIL-SAFE FALLBACK
-        if (!audioDownloadUrl || typeof audioDownloadUrl !== "string" || !audioDownloadUrl.startsWith("http")) {
-            console.log("[KADIYA-MD TT-MP3] Direct audio key not found. Activating video-to-audio failover...");
-            audioDownloadUrl = resObj?.play || resObj?.hdplay || resObj?.wmplay || resObj?.url || resObj?.link;
+        // 🎯 100% නිවැරදි Keys පරීක්ෂාව
+        let audioUrl = resObj?.music || resObj?.audio || resObj?.music_info?.play || resObj?.play_audio;
+        let videoTitle = resObj?.title || `TikTok Audio - ${m.sender.split("@")[0]}`;
+
+        // 🛡️ Failover: කෙලින්ම ඕඩියෝ ලින්ක් එකක් නැත්නම්, වීඩියෝ ලින්ක් එක ඕඩියෝවක් ලෙස භාවිත කිරීම
+        if (!audioUrl || typeof audioUrl !== "string" || !audioUrl.startsWith("http")) {
+            audioUrl = resObj?.play || resObj?.hdplay || resObj?.url || resObj?.link;
         }
 
-        if (!audioDownloadUrl || typeof audioDownloadUrl !== "string" || !audioDownloadUrl.startsWith("http")) {
-            throw new Error("සේවාදායකයෙන් වීඩියෝ හෝ ඕඩියෝ ලින්ක් එකක් වෙන් කර ගත නොහැකි විය.");
+        if (!audioUrl || typeof audioUrl !== "string" || !audioUrl.startsWith("http")) {
+            throw new Error("API එකෙන් වලංගු වීඩියෝ හෝ ඕඩියෝ සබැඳියක් සොයාගත නොහැකි විය.");
         }
 
         try { if (typeof m.react === "function") await m.react("📥"); } catch {}
         await sendMsg(`✨ *_👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥_ TikTok System* ✨\n\n📌 *Title:* ${videoTitle}\n💿 *Format:* MP3 Audio\n🚀 *Status:* uploading via ~*👑𝙆𝘼𝘿𝙄𝙔𝘼-𝙓-𝙈𝘿🔥*~`);
 
-        // 🚀 FIX: Stream Object එක කෙලින්ම නොයවා 'arraybuffer' එකක් විදිහට Memory එකට ගන්නවා (ENOENT Fix)
-        const audioResponse = await axios({
+        // 🚀 arraybuffer ක්‍රමයට RAM එකට බාගත කිරීම (ENOENT Error එක 100% ක්ම නැතිවේ)
+        const audioRes = await axios({
             method: 'get',
-            url: audioDownloadUrl.trim(),
+            url: audioUrl.trim(),
             responseType: 'arraybuffer',
             timeout: 60000
         });
 
-        // දත්ත ටික සැබෑ Node.js Buffer එකක් බවට හැරවීම
-        const audioBuffer = Buffer.from(audioResponse.data);
+        const audioBuffer = Buffer.from(audioRes.data);
         const cleanFileName = videoTitle.replace(/[\\/:*?"<>|]/g, "_").slice(0, 50) + ".mp3";
 
-        // 🎬 Audio එක සාර්ථකව WhatsApp වෙත මුදා හැරීම
+        // 🎬 WhatsApp වෙත Audio එක ලබාදීම
         await client.sendMessage(
             m.jid,
             {
-                audio: audioBuffer, // 👈 දැන් යන්නේ 100% ක් පිරිසිදු දත්ත Buffer එකක්
-                mimetype: "audio/mp4", 
+                audio: audioBuffer,
+                mimetype: "audio/mp4", // ජංගම දුරකථන වල ගැළපීම සඳහා audio/mp4 භාවිත කරයි
                 fileName: cleanFileName,
-                ptt: false 
+                ptt: false // Voice note එකක් නෙවෙයි (Audio File එකක්)
             },
             { quoted: m }
         );
 
         try { if (typeof m.react === "function") await m.react("✅"); } catch {}
 
-    } catch (globalError) {
-        console.error("[KADIYA-MD TT-MP3] CRITICAL GLOBAL ERROR:", globalError);
+    } catch (err) {
+        console.error("[TIKTOK MP3 FIXED PLUGIN ERROR]:", err.message);
         try { if (typeof m.react === "function") await m.react("❌"); } catch {}
-        await sendMsg(`❌ *Kadiya-MD TikTok Internal Error:* ${globalError.message}`);
+        await sendMsg(`❌ *Kadiya-MD TikTok Internal Error:* ${err.message}`);
     }
 }
 
 // 🎬 Commands ලියාපදිංචි කිරීම
-
 Sparky({
     name: "ttmp3",
     fromMe: isPublic,
@@ -136,4 +111,3 @@ Sparky({
     category: "download",
     desc: "Download TikTok video's background music/audio as MP3."
 }, tiktokAudioDownloader);
-
