@@ -41,11 +41,9 @@ Sparky({
         try { if (typeof m.react === "function") await m.react("📥"); } catch {}
         await sendMsg("📧 _Generating a temporary email address. Please wait..._");
 
-        // 🚀 API Request to create mail
         const response = await axios.get(`${TEMP_MAIL_API}?action=create&apitoken=${API_TOKEN}`, { timeout: 25000 });
         const resData = safeParseJson(response.data);
 
-        // API ප්‍රතිඵල පිරිසිදු කර ගැනීම
         let resObj = resData?.result || resData?.data || resData;
         let generatedEmail = resObj?.email || resObj?.mail || (typeof resObj === "string" ? resObj : null);
 
@@ -54,13 +52,12 @@ Sparky({
             return await sendMsg("❌ *Error:* සේවාදායකයෙන් තාවකාලික ඊමේල් ලිපිනයක් ලබා ගැනීමට නොහැකි විය.");
         }
 
-        // 🧠 යූසර්ගේ සෙශන් එකට මේ ඊමේල් එක සේව් කරගන්නවා (පස්සේ ලේසියෙන් චෙක් කරන්න)
         global.mailSession[m.sender] = {
             email: generatedEmail.trim(),
             time: Date.now()
         };
 
-        let responseText = `✨ *👑 𝙓-𝘽𝙊𝙏-发𝘿 𝙏𝙀𝙈𝙋 𝙈𝘼𝙄𝙇 👑* ✨\n\n`;
+        let responseText = `✨ *👑 𝙓-𝘽0𝙏-𝙈程序 𝙏𝙀𝙈𝙋 𝙈𝘼𝙄𝙇 👑* ✨\n\n`;
         responseText += `📌 *Your Temp Mail:* \`${generatedEmail.trim()}\`\n\n`;
         responseText += `💡 *Inbox එක පරීක්ෂා කිරීමට:* \`.checkmail\` කමාන්ඩ් එක භාවිතා කරන්න.\n`;
         responseText += `_Note: මෙම ඊමේල් ලිපිනය මිනිත්තු 45ක් යනතුරු සක්‍රීයව පවතී._`;
@@ -93,7 +90,6 @@ Sparky({
         let inputMail = args ? args.join(" ").trim() : "";
         let targetMail = "";
 
-        // 1. යූසර් වෙනම ඊමේල් එකක් දුන්නොත් ඒක ගන්නවා, නැත්නම් සෙශන් එකේ තියෙන එක ගන්නවා
         if (inputMail) {
             targetMail = inputMail;
         } else if (global.mailSession && global.mailSession[m.sender]) {
@@ -107,27 +103,29 @@ Sparky({
         try { if (typeof m.react === "function") await m.react("🔎"); } catch {}
         await sendMsg(`🔍 _Checking inbox for: \`${targetMail}\`..._`);
 
-        // 🚀 API Request to check messages
-        const response = await axios.get(`${TEMP_MAIL_API}?action=check&email=${encodeURIComponent(targetMail)}&apitoken=${API_TOKEN}`, { timeout: 25000 });
+        // 🚀 400 FIX: API එක සමහරවිට 'email' වෙනුවට 'mail' Parameter එක ඉල්ලන නිසා අපි දෙකම සෙට් කරලා යවනවා (Multi-Parameter Safe URL)
+        const encodedMail = encodeURIComponent(targetMail.trim());
+        const targetRequestUrl = `${TEMP_MAIL_API}?action=check&mail=${encodedMail}&email=${encodedMail}&apitoken=${API_TOKEN}`;
+
+        const response = await axios.get(targetRequestUrl, { timeout: 25000 });
         const resData = safeParseJson(response.data);
 
         let messages = resData?.result || resData?.data || resData;
 
-        // Inbox එක හිස් නම් හෝ මැසේජ් නැත්නම්
-        if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        // Inbox එක හිස් නම් හෝ මැසේජ් නැත්නම් (සමහර API වලින් හිස් වුණාම {} හෝ error String එකක් එන්න පුළුවන්)
+        if (!messages || !Array.isArray(messages) || messages.length === 0 || typeof messages === "string") {
             try { if (typeof m.react === "function") await m.react("👀"); } catch {}
             return await sendMsg(`📥 *Inbox Empty:* \`${targetMail}\` සඳහා තවමත් කිසිදු පණිවිඩයක් ලැබී නැත.`);
         }
 
-        // ලැබුණු පණිවිඩ ලැයිස්තුව ලස්සනට සකස් කිරීම
-        let inboxText = `✨ *👑 𝙓-𝘽𝙊𝙏-𝙈𝘿 𝙈𝘼𝙄𝙇 𝙄𝙉𝘽𝙊𝙓 👑* ✨\n\n`;
+        let inboxText = `✨ *👑 𝙓-𝘽𝙊𝙏-𝙈🇩 𝙈𝘼𝙄𝙇 𝙄𝙉𝘽𝙊𝙓 👑* ✨\n\n`;
         inboxText += `📧 *Mail:* \`${targetMail}\`\n📬 *Total Messages:* ${messages.length}\n\n`;
         inboxText += `--- --- --- --- --- --- --- ---\n\n`;
 
         messages.forEach((msg, idx) => {
-            let from = msg.from || msg.sender || "Unknown Sender";
+            let from = msg.from || msg.sender || msg.fromAddress || "Unknown Sender";
             let subject = msg.subject || "No Subject";
-            let body = msg.text || msg.body || msg.content || "";
+            let body = msg.text || msg.body || msg.content || msg.html || "";
             let date = msg.date || msg.time || "";
 
             inboxText += `📩 *[ ${idx + 1} ] From:* ${from}\n`;
@@ -145,6 +143,12 @@ Sparky({
     } catch (err) {
         console.error("[KADIYA-MD TEMPMAIL CHECK ERROR]:", err.message);
         try { if (typeof m.react === "function") await m.react("❌"); } catch {}
+        
+        // 400 Failover Handler: සර්වර් එකෙන් කෙලින්ම මැසේජ් නැති කතාවක් Status code එකක් විදිහට එව්වොත් ඒක Inbox Empty විදිහට පෙන්වීම
+        if (err.response?.status === 400 || err.message.includes("400")) {
+            return await sendMsg(`📥 *Inbox Empty:* දැනට මෙම ඊමේල් ලිපිනය සඳහා නව පණිවිඩ කිසිවක් ලැබී නොමැත.`);
+        }
+        
         await sendMsg(`❌ *TempMail Error:* පණිවිඩ පරීක්ෂා කිරීම අසාර්ථක විය. (${err.message})`);
     }
 });
